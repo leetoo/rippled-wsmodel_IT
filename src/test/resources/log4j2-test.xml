@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+<log4j:configuration status="warn" xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>./logs/test-log4j.log</file>
+        <encoder>
+            <pattern>%date - [%level] - from %logger in %thread %n%message%n%xException%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- %X{akkaTimestamp} [%X{sourceThread}] -->
+            <pattern>
+             MT:%.-1level %d{mm:ss.SSS} [%lo] [%t] ACTOR:[%X{akkaSource}] %F:%L  - %message%n%rEx
+            </pattern>
+            
+        </encoder>
+    </appender>
+
+    <logger name="odenzo" level="DEBUG"/>
+    <logger name="com.odenzo" level="DEBUG"/>
+    <logger name="akka" level="TRACE"/>
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+    <logger name="slick" level="INFO"/>
+    <logger name="com.odenzo.ripple.models" level="DEBUG"/>
+    <logger name="com.odenzo.ripple.test.harness" level="DEBUG"/>
+
+    <logger name="com.odenzo.ripple.core.TxnsPendingValidation" level="INFO"/>
+    <logger name="com.odenzo.ripple.core.RippleNetworkConfig" level="INFO"/>
+
+    <logger name="com.odenzo.ripple.core.com.odenzo.ripple.testkit.coms.OneOffWebSocket" level="INFO"/>
+    <logger name="application" level="DEBUG"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+
+    <logger name="org.apache.http" level="DEBUG"/>
+
+
+    <logger name="com.gargoylesoftware" level="DEBUG"/>
+</log4j:configuration>
