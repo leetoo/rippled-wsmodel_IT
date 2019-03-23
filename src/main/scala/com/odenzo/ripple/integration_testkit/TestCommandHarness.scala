@@ -12,14 +12,45 @@ import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.utils.caterrors.{AppRippleError, OError}
 
 
+/**
+*  List hack harness to use with Akka HTTP and Akka Streams approach to a command accross.
+  *  Doesn't handle taking care of a transaction flow yet.
+  *
+  *  I use this instead of the CommandHarness directly to deal with (IntelliJ or Scala?) type
+  *  inference problems using
+  *  {{
+  *   import com.odenzo.ripple.models.support.Commands.AccountInfo.AccountCurrenciesCmd
+  *
+  *     // Works
+  *     val rs: TestCallResults[AccountCurrenciesRq, AccountCurrenciesRs] = CommandHarness.doCommand(AccountCurrenciesCmd, con, rq)
+  *
+  *     // Doesn't work
+  *     val accountCurrencies: A ⇒ TestCallResults[RippleRq, AccountCurrenciesRs] = CommandHarness.doCommand(AccountCurrenciesCmd, con, _)
+  *
+  *     // Works  but type is too wide.
+      * val accountCurrencies
+  *     : (RippleCommand[Nothing, Nothing], WebSocketJsonConnection, Nothing) ⇒ TestCallResults[Nothing, Nothing]  = CommandHarness.doCommand
+  *     (AccountCurrenciesCmd, con, _:AccountCurrenciesRq)
+  *
+  *  }}
+  *
+  * @param cmd
+  * @param conn
+  * @tparam A
+  * @tparam B
+  */
+class TestCommandHarness[A<:RippleRq,B <:RippleRs](cmd:RippleCommand[A,B], conn: WebSocketJsonConnection)  {
 
-class CommandHarness[A<:RippleRq,B <:RippleRs](cmd:RippleCommand[A,B], conn: WebSocketJsonConnection)  {
-  def send(rq:A)(implicit ec:ExecutionContext): RippleTestCall[A, B] = {
-    CommandHarness.doCommand(cmd,conn,rq)
+  def bind()(implicit executionContext: ExecutionContext): A ⇒ TestCallResults[A, B] = TestCommandHarness.doCommand(cmd, conn, _)
+
+  
+  def send(rq:A)(implicit ec:ExecutionContext): TestCallResults[A, B] = {
+    TestCommandHarness.doCommand(cmd, conn, rq)
   }
 }
 
-object CommandHarness extends StrictLogging {
+object TestCommandHarness extends StrictLogging {
+
 
 
 
@@ -42,7 +73,7 @@ object CommandHarness extends StrictLogging {
       case RippleGenericSuccess(_, _, result: Json) ⇒ CirceUtils.decode(result, cmd.decoder)
       case e: RippleGenericError                    ⇒ new AppRippleError("Generic Error - No Decoding of [B]", e).asLeft
     }
-    RippleTestCall(rq, rs, generic, ans)
+    TestCallResults(rq, rs, generic, ans)
   }
 
 }

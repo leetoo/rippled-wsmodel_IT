@@ -1,4 +1,4 @@
-package com.odenzo.ripple.integration_testkit
+package com.odenzo.ripple.integration_testkit.subscriptions
 
 import com.odenzo.ripple.models.atoms.{LedgerIndex, RippleTime}
 import com.odenzo.ripple.models.support.RippleGenericResponse

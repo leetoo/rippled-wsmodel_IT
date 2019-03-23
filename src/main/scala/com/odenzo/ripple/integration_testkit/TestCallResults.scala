@@ -4,6 +4,7 @@ import java.io.{FileOutputStream, FileWriter, ObjectOutputStream}
 import java.nio.file.Path
 import scala.util.Try
 
+import cats.Show
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
@@ -12,7 +13,16 @@ import com.odenzo.ripple.models.support.{RippleGenericResponse, RippleRq, Ripple
 import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.utils.caterrors.{AppException, OError}
 
-case class RippleTestCall[A <: RippleRq, B <: RippleRs](
+/**
+*  This nasty hack represents the results of a test call. Full of duplication.
+  * @param rq
+  * @param json
+  * @param generic
+  * @param result
+  * @tparam A
+  * @tparam B
+  */
+case class TestCallResults[A <: RippleRq, B <: RippleRs](
   rq:      A,
   json:    ErrorOr[RequestResponse[Json, Json]],
   generic: ErrorOr[RippleGenericResponse],
@@ -20,6 +30,8 @@ case class RippleTestCall[A <: RippleRq, B <: RippleRs](
 ) extends StrictLogging {
 
   def hasErrors: Boolean = json.isLeft || generic.isLeft || result.isLeft
+
+
 
   def showMe(): String = {
     // In testing mode its really the JSON that is more interesting, so not showing the objects.
@@ -69,10 +81,10 @@ case class RippleTestCall[A <: RippleRq, B <: RippleRs](
       _ ← targetDir
       res ← result
       jsonPair ← json
-      _ ← RippleTestCall.writeImpure(rqFile, rq)
-      _ ← RippleTestCall.writeImpure(rsFile, res)
-      _ ← RippleTestCall.writeJsonImpure(rqJsonFile, jsonPair.rq)
-      _ ← RippleTestCall.writeJsonImpure(rsJsonFile, jsonPair.rs)
+      _ ← TestCallResults.writeImpure(rqFile, rq)
+      _ ← TestCallResults.writeImpure(rsFile, res)
+      _ ← TestCallResults.writeJsonImpure(rqJsonFile, jsonPair.rq)
+      _ ← TestCallResults.writeJsonImpure(rsJsonFile, jsonPair.rs)
 
     } yield subdir
     status.left.foreach(err ⇒ logger.error("Status: " + err.show))
@@ -81,16 +93,18 @@ case class RippleTestCall[A <: RippleRq, B <: RippleRs](
 
 }
 
-object RippleTestCall extends StrictLogging {
+object TestCallResults extends StrictLogging {
 
-  def dump[A <: RippleRq, B <: RippleRs](v: RippleTestCall[A, B]): String = {
+  def dump[A <: RippleRq, B <: RippleRs](v: TestCallResults[A, B]): String = {
     v.result match {
       case Left(err) ⇒ "** ERROR ** \n" + dumpErrorCase(v)
       case Right(ok) ⇒ "SUCCESS     \n" + dumpSuccessCase(v)
     }
   }
 
-  def dumpSuccessCase[A <: RippleRq, B <: RippleRs](v: RippleTestCall[A, B]): String = {
+  implicit val show: Show[TestCallResults[_<:RippleRq,_<:RippleRs]] = Show.show(dump(_))
+
+  def dumpSuccessCase[A <: RippleRq, B <: RippleRs](v: TestCallResults[A, B]): String = {
 
     v.result
       .map { rs: B ⇒
@@ -101,7 +115,7 @@ object RippleTestCall extends StrictLogging {
 
   }
 
-  def dumpErrorCase[A <: RippleRq, B <: RippleRs](v: RippleTestCall[A, B]): String = {
+  def dumpErrorCase[A <: RippleRq, B <: RippleRs](v: TestCallResults[A, B]): String = {
     v.result.swap
       .map { rs ⇒
         s"""Failed Request:\n${v.rq.toString}

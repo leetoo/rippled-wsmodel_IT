@@ -1,4 +1,4 @@
-package com.odenzo.ripple.integration_testkit
+package com.odenzo.ripple.integration_testkit.subscriptions
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem}
@@ -7,7 +7,8 @@ import akka.stream.{ActorMaterializer, Supervision}
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
-import com.odenzo.ripple.integration_testkit.SubscribeWebSocket.{ACK, COMPLETE, INITIALIZE, SubscribeRs}
+import com.odenzo.ripple.integration_testkit.FlowSegments
+import com.odenzo.ripple.integration_testkit.subscriptions.SubscribeWebSocket.{ACK, COMPLETE, INITIALIZE, SubscribeRs}
 import com.odenzo.ripple.models.support.RippleWsNode
 import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
 
