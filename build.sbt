@@ -14,7 +14,11 @@ scalacOptions ++= Seq("-feature",
                       "-language:higherKinds",
                       "-Ypartial-unification")
 
-lazy val wsmodels = (project in file("."))
+
+lazy val wsmodels = RootProject(file("../rippled-wsmodels"))
+
+lazy val integrationTests = (project in file("."))
+  .dependsOn(wsmodels)
   .settings(
     commonSettings,
     scalacOptions ++= opts ++ warnings ++ linters,
@@ -52,7 +56,6 @@ val devSettings = Seq(
   * */
 val libs = {
   Seq(
-      "com.odenzo" %% "rippled-wsmodels" % "0.0.6"  ,
     "org.scalatest"              %% "scalatest"      % "3.0.7" % Test,
     "org.scalacheck"             %% "scalacheck"     % "1.14.0" % Test,
     "com.typesafe"               % "config"          % "1.3.3", //  https://github.com/typesafehub/config

@@ -6,7 +6,7 @@ import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
-import com.odenzo.ripple.models.support.{RippleCommand, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs}
+import com.odenzo.ripple.models.support.{RippleCommand, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs, RippleScrollingRq, RippleScrollingRs}
 import com.odenzo.ripple.utils.CirceUtils
 import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.utils.caterrors.{AppRippleError, OError}
@@ -76,4 +76,50 @@ object TestCommandHarness extends StrictLogging {
     TestCallResults(rq, rs, generic, ans)
   }
 
+
+  /**
+  * Battline Scala on applying Type stuff. Not sure how to ensure that RippleScrolling{Rq,Rs} is a type class
+    * @param cmd
+    * @param conn
+    * @param rq
+    * @param fn
+    * @param ec
+    * @tparam A
+    * @tparam B
+    * @return
+    */
+  def doScrollingAll[A<: RippleScrollingRq, B<: RippleScrollingRs](
+                                                                    cmd:  RippleCommand[A, B],
+                                                                    conn: WebSocketJsonConnection,
+                                                                    rq:   A,
+                                                                    fn: (A,B) ⇒ A, // Scrolling Function
+                                                                  )(implicit ec: ExecutionContext)
+  :List[TestCallResults[A,B]] = {
+
+    val json: Json = cmd.encode(rq)
+
+      val rs: ErrorOr[RequestResponse[Json, Json]] = conn.ask(json)
+    val generic: ErrorOr[RippleGenericResponse] = rs.flatMap(r ⇒ CirceUtils.decode(r.rs, RippleGenericResponse.decoder))
+                                                  .leftMap(err ⇒ OError("Trouble Decoding JSON Response as RippleGenericResponse", err))
+
+    // RippleGenericSuccess or RippleGenericError or a left with Trouble Decoding JSON Response Error
+    // Would be kind of nice putting the RippleGenericError into an OError and on the left side.
+    val ans: ErrorOr[B] = generic.flatMap {
+      case RippleGenericSuccess(_, _, result: Json) ⇒ CirceUtils.decode(result, cmd.decoder)
+      case e: RippleGenericError                    ⇒ new AppRippleError("Generic Error - No Decoding of [B]", e).asLeft
+    }
+
+    val tcr: TestCallResults[A, B] = TestCallResults(rq, rs, generic, ans)
+
+    val theList: List[TestCallResults[A, B]]  = tcr.result match {
+      case Left(err) ⇒  tcr::Nil // Finish on an error
+      case Right(rs) if rs.marker.isEmpty ⇒ tcr::Nil  // Or no scrolling left
+      case Right(rs) ⇒
+        val updatedRq = fn(rq, rs)
+        tcr :: doScrollingAll(cmd,conn, updatedRq,fn)
+  
+
+    }
+    theList
+  }
 }
