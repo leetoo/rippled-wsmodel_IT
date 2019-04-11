@@ -6,7 +6,7 @@ import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
-import com.odenzo.ripple.models.support.{RippleCommand, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs, RippleScrollingRq, RippleScrollingRs}
+import com.odenzo.ripple.models.support.{Codec, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs, RippleScrollingRq, RippleScrollingRs}
 import com.odenzo.ripple.utils.CirceUtils
 import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.utils.caterrors.{AppRippleError, OError}
@@ -39,7 +39,7 @@ import com.odenzo.ripple.utils.caterrors.{AppRippleError, OError}
   * @tparam A
   * @tparam B
   */
-class TestCommandHarness[A<:RippleRq,B <:RippleRs](cmd:RippleCommand[A,B], conn: WebSocketJsonConnection)  {
+class TestCommandHarness[A<:RippleRq,B <:RippleRs](cmd:Codec[A,B], conn: RippleSender)  {
 
   def bind()(implicit executionContext: ExecutionContext): A ⇒ TestCallResults[A, B] = TestCommandHarness.doCommand(cmd, conn, _)
 
@@ -57,9 +57,9 @@ object TestCommandHarness extends StrictLogging {
   // Very laboured way of doing so we can see intermediate results with
   // special case error model objects. Special case seems better though!
   def doCommand[A <: RippleRq, B <: RippleRs](
-    cmd:  RippleCommand[A, B],
-    conn: WebSocketJsonConnection,
-    rq:   A
+                                               cmd:  Codec[A, B],
+                                               conn: RippleSender,
+                                               rq:   A
   )(implicit ec: ExecutionContext) = {
 
     val json: Json = cmd.encode(rq)
@@ -89,7 +89,7 @@ object TestCommandHarness extends StrictLogging {
     * @return
     */
   def doScrollingAll[A<: RippleScrollingRq, B<: RippleScrollingRs](
-                                                                    cmd:  RippleCommand[A, B],
+                                                                    cmd:  Codec[A, B],
                                                                     conn: WebSocketJsonConnection,
                                                                     rq:   A,
                                                                     fn: (A,B) ⇒ A, // Scrolling Function

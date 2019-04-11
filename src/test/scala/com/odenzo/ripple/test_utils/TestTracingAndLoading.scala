@@ -14,7 +14,7 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe
 import io.circe.Json
 
-import com.odenzo.ripple.models.support.{RippleCommand, RippleRq, RippleRs}
+import com.odenzo.ripple.models.support.{Codec, RippleRq, RippleRs}
 import com.odenzo.ripple.utils.{CirceUtils, caterrors}
 import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.utils.caterrors.{AppError, OError, AppException}

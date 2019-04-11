@@ -112,7 +112,7 @@ class WebSocketJsonConnection(
                                src: SourceQueueWithComplete[Json],
                                sink: SinkQueueWithCancel[ErrorOr[Json]],
                                node: RippleWsNode
-) extends StrictLogging {
+) extends StrictLogging with RippleSender {
 
   override def toString: String = s"WebSocketQueue $node ${src.toString}"
 

@@ -23,7 +23,7 @@ class RippleCommands$Test extends FunSuite with EitherValues with Matchers with 
   val base = Paths.get("/private/tmp/traces/")
 
   test("Loading") {
-    val cmd = Commands.AccountInfo.FeeCmd
+    val cmd = Commands.feeCmd
     val subdir = "com.odenzo.ripple.models.wireprotocol.serverinfo.FeeRq_1"
     val dir = base.resolve(subdir)
     logger.info(s"Looking at $dir")

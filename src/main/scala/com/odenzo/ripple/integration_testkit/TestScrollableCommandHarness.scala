@@ -5,7 +5,7 @@ import scala.concurrent.ExecutionContext
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
-import com.odenzo.ripple.models.support.{RippleCommand, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs}
+import com.odenzo.ripple.models.support.{Codec, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs}
 import com.odenzo.ripple.utils.CirceUtils
 import com.odenzo.ripple.utils.caterrors.{AppError, AppException, AppRippleError, OError}
 import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
@@ -37,8 +37,8 @@ import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
   * @tparam A
   * @tparam B
   */
-class TestScrollableCommandHarness[A<:RippleRq,B <:RippleRs](cmd:RippleCommand[A,B],
-                                                                         conn: WebSocketJsonConnection)  {
+class TestScrollableCommandHarness[A<:RippleRq,B <:RippleRs](cmd:Codec[A,B],
+                                                             conn: WebSocketJsonConnection)  {
 
   def bind()(implicit executionContext: ExecutionContext): A ⇒ TestCallResults[A, B] = TestCommandHarness.doCommand(cmd, conn, _)
 
@@ -53,9 +53,9 @@ object TestScrollableCommandHarness extends StrictLogging {
   // Very laboured way of doing so we can see intermediate results with
   // special case error model objects. Special case seems better though!
   def doCommand[A <: RippleRq, B <: RippleRs](
-      cmd: RippleCommand[A, B],
-      conn: WebSocketJsonConnection,
-      rq: A
+                                               cmd: Codec[A, B],
+                                               conn: WebSocketJsonConnection,
+                                               rq: A
   )(implicit ec: ExecutionContext) = {
 
     import cats._
