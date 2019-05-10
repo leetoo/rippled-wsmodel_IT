@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
-<log4j:configuration status="warn" xmlns:log4j="http://jakarta.apache.org/log4j/"
-                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                     xsi:schemaLocation="http://jakarta.apache.org/log4j/ ">
+
+<configuration status="warn" >
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>./logs/test-log4j.log</file>
@@ -45,4 +43,4 @@
 
 
     <logger name="com.gargoylesoftware" level="DEBUG"/>
-</log4j:configuration>
+</configuration>
