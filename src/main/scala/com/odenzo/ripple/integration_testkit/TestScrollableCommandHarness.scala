@@ -6,9 +6,9 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
 import com.odenzo.ripple.models.support.{Codec, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs}
-import com.odenzo.ripple.utils.CirceUtils
-import com.odenzo.ripple.utils.caterrors.{AppError, AppException, AppRippleError, OError}
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.CirceUtils
+import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppException, AppRippleError, OError}
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
 
 /**
 *  List hack harness to use with Akka HTTP and Akka Streams approach to a command accross.

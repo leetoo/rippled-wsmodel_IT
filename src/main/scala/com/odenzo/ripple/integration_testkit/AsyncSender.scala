@@ -4,8 +4,8 @@ import scala.concurrent.duration.Duration
 
 import io.circe.Json
 
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.{ErrorOr, ErrorOrFT}
-import com.odenzo.ripple.utils.caterrors.ErrorOrFT
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.{ErrorOr, ErrorOrFT}
+import com.odenzo.ripple.localops.utils.caterrors.ErrorOrFT
 
 trait RippleSender {
 

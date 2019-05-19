@@ -13,8 +13,8 @@ import com.odenzo.ripple.models.atoms.AccountAddr
 import com.odenzo.ripple.models.support.{Commands, RippleAccountRO, RippleRq, RippleWsNode}
 import com.odenzo.ripple.models.wireprotocol.accountinfo.{AccountCurrenciesRq, AccountCurrenciesRs}
 import com.odenzo.ripple.models.wireprotocol.serverinfo.{FeeRq, FeeRs}
-import com.odenzo.ripple.utils.caterrors
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
 
 class HarnessTestCmds$ITest extends IntegrationTestFixture {
 

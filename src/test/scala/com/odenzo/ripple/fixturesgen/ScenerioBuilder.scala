@@ -1,61 +1,83 @@
 package com.odenzo.ripple.fixturesgen
 
-import com.typesafe.scalalogging.StrictLogging
-import io.circe.{Decoder, Json}
-
-import com.odenzo.ripple.integration_testkit.RequestResponse
-import com.odenzo.ripple.models.wireprotocol.accountinfo.{WalletProposeRq, WalletProposeRs}
-import com.odenzo.ripple.utils.CirceUtils
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
 import cats._
 import cats.data._
 import cats.implicits._
-import io.circe.syntax._
-
-import com.odenzo.ripple.models.atoms.{AccountAddr, AccountKeys, Drops}
-import com.odenzo.ripple.models.support.{
-  GenesisAccount,
-  RippleGenericError,
-  RippleGenericResponse,
-  RippleGenericSuccess
+import com.odenzo.ripple.integration_testkit.RequestResponse
+import com.odenzo.ripple.models.atoms.{
+  AccountAddr,
+  AccountKeys,
+  BitMaskFlag,
+  Drops,
+  Flag,
+  SigningPublicKey,
+  TxnSequence
+}
+import com.odenzo.ripple.models.wireprotocol.accountinfo.{
+  AccountInfoRq,
+  AccountInfoRs,
+  WalletProposeRq,
+  WalletProposeRs
 }
 import com.odenzo.ripple.models.wireprotocol.ledgerinfo.{LedgerAcceptRq, LedgerAcceptRs}
-import com.odenzo.ripple.models.wireprotocol.transactions.{SignRq, SignRs, SubmitRq, SubmitRs}
 import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.{CommonTx, PaymentTx}
-import com.odenzo.ripple.utils.caterrors.{AppError, OError}
+import com.odenzo.ripple.models.wireprotocol.transactions.{SignRq, SignRs, SubmitRq, SubmitRs}
+import com.odenzo.ripple.localops.utils.caterrors.AppError
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.typesafe.scalalogging.StrictLogging
+import io.circe.syntax._
+import io.circe.{Decoder, Json}
 
 /**
   * Some helpers to create ripple test-net server scenario.
   * Use on local test-net, ideally be able to re-run each time.
+  * This assumes a local docket normally, and sets up some base accounts.
   */
 object ScenerioBuilder extends StrictLogging with FixtureGeneratorUtils {
 
-  val (wallets: scala.List[_root_.com.odenzo.ripple.models.atoms.AccountKeys],
-       walletJson: List[RequestResponse[Json, Json]]) = makeWallets()
+  private val walletsVals: Either[AppError, (List[AccountKeys], List[RequestResponse[Json, Json]])] = makeWallets()
 
-  val genesis: AccountKeys = wallets.head
+  val wallets: Either[AppError, List[AccountKeys]]                    = walletsVals.map(_._1.drop(1))
+  val walletJson: Either[AppError, List[RequestResponse[Json, Json]]] = walletsVals.map(_._2.drop(1))
+  val genesis: Either[AppError, AccountKeys]                          = walletsVals.map(v => v._1.head)
+  val genesisJson: Either[AppError, RequestResponse[Json, Json]]      = walletsVals.map(v => v._2.head)
 
   xrpTransferScenario()
 
-  def xrpTransferScenario(): Unit = {
-    val others = wallets.drop(1)
-    others.foreach(w ⇒ logger.info(s"Other Wallet: $w"))
-    initialActivation(others, Drops.fromXrp(10000))
-    advanceLedger()
+  def xrpTransferScenario(): Either[AppError, LedgerAcceptRs] = {
+    wallets.flatMap { wlist =>
+      val ws: List[AccountKeys] = wlist
+      val activated             = initialActivation(ws, Drops.fromXrp(10000))
+      if (activated.isRight) {
+        logger.warn(s"Activated addresses :\n\n${ws.map(_.address).mkString("\n", "\n", "\n")} \n\n")
+      } else {
+        logger.error(s"Initial Activation Failed ${activated.left}")
+      }
+      advanceLedger()
+    }
   }
 
   /** Tick over ledger, this must be duplicated N times already! */
-  def advanceLedger(): Unit = {
-    val rs: LedgerAcceptRs = getOrLog(doTxnCall(LedgerAcceptRq().asJson, LedgerAcceptRs.decoder))
-    logger.info(s"Advanced Ledger: $rs")
+  def advanceLedger(): Either[AppError, LedgerAcceptRs] = {
+    val rs = doCmdCall(LedgerAcceptRq().asJson, LedgerAcceptRs.decoder)
+    rs
   }
 
+  def getAccountSequence(address: AccountAddr): Either[AppError, TxnSequence] = {
+    val rq                                   = AccountInfoRq(address, queue = false, signer_lists = false, strict = true)
+    val ans: Either[AppError, AccountInfoRs] = doCmdCall(rq.asJson, AccountInfoRs.decoder)
+    ans.map(_.account_data.sequence)
+  }
+
+  def createNewAccount(funder: AccountKeys, amount: Drops, keyType: String) = {}
+
   /**
+    * First wallet creation is always genesis account, which exists already.
     * Create 2 each  sepc256k1 and ed25199 accounts
-    * Use Genesis to fund them all with 10k XRP
+    *
     *
     */
-  def makeWallets(): (List[AccountKeys], List[RequestResponse[Json, Json]]) = {
+  def makeWallets(): Either[AppError, (List[AccountKeys], List[RequestResponse[Json, Json]])] = {
     val cmds = List(
       WalletProposeRq(None, passphrase = Some("masterpassphrase"), Some("secp256k1")),
       WalletProposeRq(None, None, Some("secp256k1")),
@@ -64,45 +86,73 @@ object ScenerioBuilder extends StrictLogging with FixtureGeneratorUtils {
       WalletProposeRq(None, None, Some("ed25519"))
     )
 
-    val wallets: Either[AppError, List[(AccountKeys, RequestResponse[Json, Json])]] = cmds.traverse { rq ⇒
-      val jsonRq: Json = rq.asJson
-      // Do manually to save the json req res
-      val rr: ErrorOr[RequestResponse[Json, Json]] = doCall(jsonRq)
-      val res: Either[AppError, WalletProposeRs]   = rr.flatMap(v ⇒ parseTxnReqRes(v, Decoder[WalletProposeRs]))
-      res.map(_.keys).product(rr)
-    }
+    cmds
+      .traverse { rq ⇒
+        doCmdCallKeepJson[WalletProposeRs](rq.asJson, WalletProposeRs.decoder)
+          .fmap {
+            case (rs, rr) =>
+              (rs.keys, rr)
+          }
+      }
+      .fmap(_.unzip)
 
-    val tupled: List[(AccountKeys, RequestResponse[Json, Json])] = getOrLog(wallets)
-    (tupled.map(_._1), tupled.map(_._2))
+  }
 
+  /** We want a fully formed offline transaction here
+    * w */
+  def createXrpTransfer(from: AccountKeys, to: AccountKeys, amount: Drops, sequence: TxnSequence): PaymentTx = {
+
+    val common = CommonTx(
+      sequence = Some(sequence),
+      fee = Some(Drops.fromXrp("55")),
+      signers = None,
+      signingPubKey = Some(SigningPublicKey(from.public_key_hex)),
+      flags = BitMaskFlag(2147483648L),
+      memos = None,
+      hash = None
+    )
+
+    PaymentTx(account = from.account_id,
+              amount = amount,
+              destination = to.account_id,
+              invoiceID = None,
+              paths = None,
+              sendMax = None,
+              deliverMin = None,
+              base = common)
+
+  }
+
+  /** Use Genesis to fund them all with 10k XRP */
+  def activateAccount(keys: AccountKeys, xrp: Drops): Either[AppError, SubmitRs] = {
+    logger.info(s"Activated Account ${keys.address}")
+    val res: Either[AppError, SubmitRs] = for {
+      sender    <- genesis
+      seq       <- getAccountSequence(sender.address)
+      rq        = createXrpTransfer(sender, keys, xrp, seq)
+      toSign    = SignRq(rq.asJson, sender.secret)
+      signed    <- doCmdCall(toSign.asJson, SignRs.decoder2)
+      toSubmit  = SubmitRq(signed.tx_blob).asJson
+      submitted <- doTxnCall(toSubmit.asJson, Decoder[SubmitRs])
+      _         <- advanceLedger()
+    } yield submitted
+
+    res.left.foreach(v => logger.error(s"ERROR Activating Account ${keys.address} " + v.show))
+    res
   }
 
   /**
     *  Transfers money to each account and advances one ledger
+    *
     * @param toAct
     * @param xrp
     */
-  def initialActivation(toAct: List[AccountKeys], xrp: Drops): Unit = {
-    logger.info(s"Activated ${toAct.length} accounts with $xrp")
-    val signrqs: List[Json] = toAct.map { keys ⇒
-      val json = createXrpTransfer(genesis, keys, xrp).asJson
-      SignRq(json, genesis.secret).asJson
-    }
+  def initialActivation(toAct: List[AccountKeys], xrp: Drops): Either[AppError, List[SubmitRs]] = {
+    logger.info("Activating Accounts: " + toAct.map(_.address).mkString("\n", "\n", "\n"))
+    val res: Either[AppError, List[SubmitRs]] = toAct.traverse(activateAccount(_, xrp))
 
-    val done: List[SubmitRs] = signrqs.map { signRq ⇒
-      val signed: SignRs = getOrLog(doTxnCall(signRq, Decoder[SignRs]))
-      val subRq          = SubmitRq(signed.tx_blob).asJson
-      val submitted      = getOrLog(doTxnCall(subRq, Decoder[SubmitRs]))
-      submitted.engine.engine_result shouldEqual "tesSUCCESS"
-      submitted
-    }
-    advanceLedger()
-  }
-
-  def createXrpTransfer(from: AccountKeys, to: AccountKeys, amount: Drops): PaymentTx = {
-    val base = CommonTx()
-    PaymentTx(from.account_id, amount, to.account_id, None, None, None, None, base)
-
+    logger.warn(s"INIITAL ACTIVATION COMPLETED OF NEW ACCOUNTS OK = ${res.isRight}")
+    res
   }
 
 }

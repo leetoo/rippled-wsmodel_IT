@@ -12,8 +12,8 @@ import com.odenzo.ripple.integration_testkit.{RippleSender, WebSocketJsonConnect
 import com.odenzo.ripple.models.atoms.{AccountAddr, CurrencyAmount}
 import com.odenzo.ripple.models.support.{Codec, RippleRq, RippleRs, RippleWsNode}
 import com.odenzo.ripple.models.wireprotocol.accountinfo.{AccountLinesRq, AccountLinesRs}
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.utils.caterrors.{AppError, AppRippleError}
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppRippleError}
 
 /** We should actually put this in the RippleModels section with a request object having a default codec.
   *   Default because sometimes don't need to decode the final results and can make more efficient RippleRs subclass.

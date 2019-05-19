@@ -7,9 +7,9 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
 import com.odenzo.ripple.models.support.{Codec, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs, RippleScrollingRq, RippleScrollingRs}
-import com.odenzo.ripple.utils.CirceUtils
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.utils.caterrors.{AppRippleError, OError}
+import com.odenzo.ripple.localops.utils.CirceUtils
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors.{AppRippleError, OError}
 
 
 /**
@@ -50,8 +50,6 @@ class TestCommandHarness[A<:RippleRq,B <:RippleRs](cmd:Codec[A,B], conn: RippleS
 }
 
 object TestCommandHarness extends StrictLogging {
-
-
 
 
   // Very laboured way of doing so we can see intermediate results with

@@ -20,7 +20,11 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "1.0.0")
 // --------------- Documentation Goodies --------------
 /**
   * Makes this work.
+<<<<<<< Updated upstream
   * My own class, which works with [[scala.Option]] and [[circe.Json]].
+=======
+  * My own class, which works with [[scala.Option]] and [[io.circe.Json]].
+>>>>>>> Stashed changes
   */
 //addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "latest.release")
 

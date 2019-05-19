@@ -15,9 +15,9 @@ import io.circe
 import io.circe.Json
 
 import com.odenzo.ripple.models.support.{Codec, RippleRq, RippleRs}
-import com.odenzo.ripple.utils.{CirceUtils, caterrors}
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.utils.caterrors.{AppError, OError, AppException}
+import com.odenzo.ripple.localops.utils.{CirceUtils, caterrors}
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors.{AppError, OError, AppException}
 
 /** Each test trace is in a directory, with 4 files we find by the file suffix only.
  *  By convention we know the request.

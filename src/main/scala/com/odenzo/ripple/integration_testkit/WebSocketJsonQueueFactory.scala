@@ -16,8 +16,8 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
 import com.odenzo.ripple.models.support.RippleWsNode
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.{ErrorOr, ErrorOrFT}
-import com.odenzo.ripple.utils.caterrors.{AppError, AppException, AppJsonError, ErrorOrFT, OError}
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.{ErrorOr, ErrorOrFT}
+import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppException, AppJsonError, ErrorOrFT, OError}
 
 /** Long running WebSocket now pruned to just Json => ErrorOr[Json]
   *  This does a synchronous send and recieve, but due to the wonders of Akka Stream Queue still not MT safe.
@@ -64,7 +64,7 @@ class WebSocketJsonQueueFactory(node: RippleWsNode, logMessages: Boolean = true,
 
     instance
   }
-  def connect(connectTimeout: Duration = Duration("4 seconds")): ErrorOr[WebSocketJsonConnection] = {
+  def connect(connectTimeout: Duration = Duration("10 seconds")): ErrorOr[WebSocketJsonConnection] = {
     val async: ErrorOrFT[WebSocketJsonConnection] = connectAsync()
     val sync: ErrorOr[WebSocketJsonConnection] = ErrorOrFT.sync(async, connectTimeout)
     sync
@@ -75,7 +75,7 @@ class WebSocketJsonQueueFactory(node: RippleWsNode, logMessages: Boolean = true,
   ] = {
 
     val url: String = node.url
-    logger.trace(s"Building RippleWebSocket to $url")
+    logger.info(s"Building RippleWebSocket to $url")
 
     val configedQueue = sourceQueue
       .withAttributes(Attributes.logLevels(onElement = Logging.WarningLevel))

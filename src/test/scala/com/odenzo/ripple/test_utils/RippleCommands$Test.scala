@@ -14,9 +14,9 @@ import com.odenzo.ripple.models.atoms.AccountAddr
 import com.odenzo.ripple.models.support.{Commands, RippleCodecUtils}
 import com.odenzo.ripple.models.wireprotocol.accountinfo.WalletProposeRq
 import com.odenzo.ripple.models.wireprotocol.serverinfo.{FeeRq, FeeRs}
-import com.odenzo.ripple.utils.CirceUtils
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.utils.caterrors.AppException
+import com.odenzo.ripple.localops.utils.CirceUtils
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors.AppException
 
 class RippleCommands$Test extends FunSuite with EitherValues with Matchers with StrictLogging {
 

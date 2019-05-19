@@ -10,8 +10,8 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
 import com.odenzo.ripple.models.support.{RippleGenericResponse, RippleRq, RippleRs}
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.utils.caterrors.{AppError, AppException, OError}
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppException, OError}
 
 /**
 *  This nasty hack represents the results of a test call. Full of duplication.

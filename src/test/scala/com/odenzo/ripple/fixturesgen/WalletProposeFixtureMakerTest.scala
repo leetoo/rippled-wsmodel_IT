@@ -9,7 +9,7 @@ import org.scalatest.FunSuite
 import org.scalatest.concurrent.PatienceConfiguration
 
 import com.odenzo.ripple.models.wireprotocol.accountinfo.{WalletProposeRq, WalletProposeRs}
-import com.odenzo.ripple.utils.caterrors.AppError
+import com.odenzo.ripple.localops.utils.caterrors.AppError
 
 class WalletProposeFixtureMakerTest extends FunSuite with FixtureGeneratorUtils with PatienceConfiguration {
 

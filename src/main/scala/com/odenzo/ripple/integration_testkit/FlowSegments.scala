@@ -18,9 +18,9 @@ import akka.stream.scaladsl.{Flow, Keep, Sink, SinkQueueWithCancel, Source}
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
-import com.odenzo.ripple.utils.CirceUtils
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.utils.caterrors.OError
+import com.odenzo.ripple.localops.utils.CirceUtils
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors.OError
 
 /** Common flow pieces used/assembled into specific end-to-end flows.
   *  These are Akka flows designed to send requests to a Ripple Server (over websockets) and retrieve the response.

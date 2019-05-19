@@ -12,8 +12,8 @@ import org.scalatest.time.{Seconds, Span}
 import com.odenzo.ripple.integration_testkit.{RequestResponse, WebSocketJsonConnection, WebSocketJsonQueueFactory}
 import com.odenzo.ripple.models.wireprotocol.serverinfo.ServerInfoRq
 import com.odenzo.ripple.models.wireprotocol.subscriptions.SubscribeLedgerRq
-import com.odenzo.ripple.utils.caterrors
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
 
 class WebSocketQ$ITest extends FunSuite with IntegrationTestFixture with PatienceConfiguration {
 

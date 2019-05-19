@@ -11,8 +11,8 @@ import com.odenzo.ripple.integration_testkit.{OtherTestCommandHarness, RequestRe
 import com.odenzo.ripple.models.atoms.{AccountAddr, Currency, CurrencyAmount, Drops, FiatAmount, Script, TrustLine, TxnSequence}
 import com.odenzo.ripple.models.support.{Codec, Commands, RippleAnswer, RippleGenericError, RippleRq, RippleRs}
 import com.odenzo.ripple.models.wireprotocol.accountinfo.{AccountCurrenciesRq, AccountCurrenciesRs, AccountInfoRq, AccountInfoRs, AccountLinesRq, AccountLinesRs}
-import com.odenzo.ripple.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.utils.caterrors.{AppError, AppRippleError}
+import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppRippleError}
 
 /**
   * Playing around app to fetch some balances from RIppled in production/public.
