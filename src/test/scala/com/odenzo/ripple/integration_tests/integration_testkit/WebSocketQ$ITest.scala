@@ -3,13 +3,13 @@ package com.odenzo.ripple.integration_tests.integration_testkit
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 
-import io.circe.Json
+import io.circe.{Json, JsonObject}
 import io.circe.syntax._
 import org.scalatest.{Assertion, FunSuite}
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Seconds, Span}
 
-import com.odenzo.ripple.integration_testkit.{RequestResponse, WebSocketJsonConnection, WebSocketJsonQueueFactory}
+import com.odenzo.ripple.integration_testkit.{JsonReqRes, RequestResponse, WebSocketJsonConnection, WebSocketJsonQueueFactory}
 import com.odenzo.ripple.models.wireprotocol.serverinfo.ServerInfoRq
 import com.odenzo.ripple.models.wireprotocol.subscriptions.SubscribeLedgerRq
 import com.odenzo.ripple.localops.utils.caterrors
@@ -34,9 +34,9 @@ class WebSocketQ$ITest extends FunSuite with IntegrationTestFixture with Patienc
   }
 
   test("Send One") {
-    val connection: WebSocketJsonConnection          = ws.connect().right.value
-    val req                                          = ServerInfoRq().asJson
-    val result: ErrorOr[RequestResponse[Json, Json]] = connection.ask(req)
+    val connection: WebSocketJsonConnection = ws.connect().right.value
+    val req                                 = ServerInfoRq().asJsonObject
+    val result                              = connection.ask(req)
     logger.info(s"Raw Result $result")
     logWithRequest(req, result)
     result.isRight shouldBe true
@@ -65,9 +65,9 @@ class WebSocketQ$ITest extends FunSuite with IntegrationTestFixture with Patienc
     *  }
     */
   test("Send Sync MT Safe", IntegrationTest) {
-    val connection: WebSocketJsonConnection                      = ws.connect().right.value
-    val reqs: immutable.Seq[Json]                                = (1 to 2).map(_ ⇒ ServerInfoRq().asJson)
-    val ans: immutable.Seq[ErrorOr[RequestResponse[Json, Json]]] = reqs.map(rq ⇒ connection.ask(rq))
+    val connection: WebSocketJsonConnection     = ws.connect().right.value
+    val reqs: immutable.Seq[JsonObject] = (1 to 2).map(_ ⇒ ServerInfoRq().asJsonObject)
+    val ans: immutable.Seq[ErrorOr[JsonReqRes]] = reqs.map(rq ⇒ connection.ask(rq))
 
     ans.foreach(logResult)
     ans.foreach(_.isRight shouldBe true)
@@ -76,7 +76,7 @@ class WebSocketQ$ITest extends FunSuite with IntegrationTestFixture with Patienc
 
   test("Example of Using Plain Queue for Subscribe Flow", IntegrationTest) {
     val connection: WebSocketJsonConnection = ws.connect().right.value
-    val rq: Json                            = SubscribeLedgerRq().asJson
+    val rq: JsonObject = SubscribeLedgerRq().asJsonObject
     val offer: ErrorOr[String]              = connection.offerSync(rq).value.futureValue
     offer.isRight shouldBe true
 
@@ -100,10 +100,10 @@ class WebSocketQ$ITest extends FunSuite with IntegrationTestFixture with Patienc
   //    res.foreach(r ⇒ logger.debug(s"Msg: ${r.show} \n\n"))
   //  }
 
-  def logWithRequest[A](rq: Json, rs: ErrorOr[A]): Unit = {
+  def logWithRequest[A](rq: JsonObject, rs: ErrorOr[A]): Unit = {
     rs match {
       case Left(err) ⇒
-        logger.error(s"Sending:\n${rq.spaces2}\n RESULTED in error\n${err.show}")
+        logger.error(s"Sending:\n${rq.asJson.spaces2}\n RESULTED in error\n${err.show}")
 
       case Right(ok) ⇒ logger.debug(ok.toString)
     }

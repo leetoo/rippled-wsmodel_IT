@@ -24,7 +24,7 @@ import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppException, OErro
   */
 case class TestCallResults[A <: RippleRq, B <: RippleRs](
   rq:      A,
-  json:    ErrorOr[RequestResponse[Json, Json]],
+  json:    ErrorOr[JsonReqRes],
   generic: ErrorOr[RippleGenericResponse],
   result:  ErrorOr[B]
 ) extends StrictLogging {

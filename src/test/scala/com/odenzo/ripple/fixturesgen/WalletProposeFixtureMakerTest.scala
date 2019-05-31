@@ -41,7 +41,7 @@ class WalletProposeFixtureMakerTest extends FunSuite with FixtureGeneratorUtils 
 
 
   def executeFixture(fixs: List[WalletProposeRq]) = {
-    val jsons = fixs.map(_.asJson)
+    val jsons = fixs.map(_.asJsonObject)
     val ans: Either[AppError, List[String]] = jsons.traverse(doCall).map(v ⇒ v.map(reqres2string))
     val each                                = ans.right.value
     val jsonArray: String                   = each.mkString("[", ",\n", "\n]\n")

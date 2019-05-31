@@ -7,7 +7,7 @@ import java.security.SecureRandom
 import java.util.UUID
 
 import com.odenzo.ripple.fixturesgen.ScenerioBuilder.advanceLedger
-import com.odenzo.ripple.integration_testkit.RequestResponse
+import com.odenzo.ripple.integration_testkit.{JsonReqRes, RequestResponse}
 import com.odenzo.ripple.models.atoms.{AccountKeys, Drops, RippleKeyType, TxnSequence}
 import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.{CommonTx, PaymentTx}
 import com.odenzo.ripple.models.wireprotocol.transactions.{SignRq, SignRs, SubmitRq, SubmitRs}
@@ -15,7 +15,6 @@ import com.odenzo.ripple.localops.utils.caterrors.AppError
 import io.circe.syntax._
 import io.circe.{Decoder, Json}
 import org.scalatest.FunSuite
-
 import scala.collection.immutable
 
 /** This is to make some JSON data with transactions and the submit and sign stuff.
@@ -50,7 +49,7 @@ class SigningFixtureMakerTest extends FunSuite with FixtureGeneratorUtils {
 //  }
 
   def executeFixture(fixs: List[SignRq]) = {
-    val jsons                               = fixs.map(_.asJson)
+    val jsons                               = fixs.map(_.asJsonObject)
     val ans: Either[AppError, List[String]] = jsons.traverse(doCall).map(v ⇒ v.map(reqres2string))
     val each                                = ans.right.value
     val jsonArray: String                   = each.mkString("[", ",\n", "\n]\n")
@@ -70,21 +69,21 @@ class SigningFixtureMakerTest extends FunSuite with FixtureGeneratorUtils {
     val otherWallets            = accounts.find(secpWallet != _)
 
     /** In this case no need to submit, other than to check all ok */
-    def doSimple(sender: AccountKeys, recv: AccountKeys, amt: Drops): RequestResponse[Json, Json] = {
+    def doSimple(sender: AccountKeys, recv: AccountKeys, amt: Drops): JsonReqRes = {
       val seq: TxnSequence = getOrLog(ScenerioBuilder.getAccountSequence(sender.address))
       val rq: PaymentTx = ScenerioBuilder.createXrpTransfer(sender, recv, amt,seq)
       val signRq                              = SignRq(rq.asJson, sender.secret)
-      val signed: RequestResponse[Json, Json] = getOrLog(doCall(signRq.asJson))
+      val signed: JsonReqRes = getOrLog(doCall(signRq.asJsonObject))
       val signRs: SignRs = getOrLog(decodeTxnCall(signed, Decoder[SignRs]))
 
       
-      val subRq     = SubmitRq(signRs.tx_blob).asJson
+      val subRq     = SubmitRq(signRs.tx_blob).asJsonObject
       val submitted = getOrLog(doTxnCall(subRq, Decoder[SubmitRs]))
       advanceLedger()
       signed
     }
 
-    val res: immutable.Seq[RequestResponse[Json, Json]] =
+    val res: immutable.Seq[JsonReqRes] =
       (555L to 567).map {v ⇒ doSimple(secpWallet, otherWallets.head, Drops.fromXrp(v)) }
 
     logAnswerToFile("logs/secpwallets.json", getOrLog(ScenerioBuilder.walletJson))

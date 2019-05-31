@@ -29,3 +29,11 @@ class TestingPayloads {
 
   val both: Ior[Json, Json] = RawRqRs(Json.fromString("foo")).putRight(Json.fromString("bar"))
 }
+
+
+case class JsonReqRes(rq:Json, rs:Json)
+
+
+object JsonReqRes {
+  implicit val show: Show[JsonReqRes] = Show.show[JsonReqRes](s ⇒ s"Req:\n ${s.rq.show}\n Res: ${s.rs.show}")
+}

@@ -4,7 +4,7 @@ import scala.concurrent.ExecutionContext
 
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.Json
+import io.circe.{Json, JsonObject}
 
 import com.odenzo.ripple.models.support.{Codec, RippleGenericError, RippleGenericResponse, RippleGenericSuccess, RippleRq, RippleRs, RippleScrollingRq, RippleScrollingRs}
 import com.odenzo.ripple.localops.utils.CirceUtils
@@ -60,8 +60,8 @@ object TestCommandHarness extends StrictLogging {
                                                rq:   A
   )(implicit ec: ExecutionContext) = {
 
-    val json: Json = cmd.encode(rq)
-    val rs: ErrorOr[RequestResponse[Json, Json]] = conn.ask(json)
+    val json: JsonObject = cmd.encode(rq)
+    val rs: ErrorOr[JsonReqRes] = conn.ask(json)
     val generic: ErrorOr[RippleGenericResponse] = rs.flatMap(r ⇒ CirceUtils.decode(r.rs, RippleGenericResponse.decoder))
       .leftMap(err ⇒ OError("Trouble Decoding JSON Response as RippleGenericResponse", err))
 
@@ -94,9 +94,9 @@ object TestCommandHarness extends StrictLogging {
                                                                   )(implicit ec: ExecutionContext)
   :List[TestCallResults[A,B]] = {
 
-    val json: Json = cmd.encode(rq)
+    val json: JsonObject = cmd.encode(rq)
 
-      val rs: ErrorOr[RequestResponse[Json, Json]] = conn.ask(json)
+      val rs: ErrorOr[JsonReqRes] = conn.ask(json)
     val generic: ErrorOr[RippleGenericResponse] = rs.flatMap(r ⇒ CirceUtils.decode(r.rs, RippleGenericResponse.decoder))
                                                   .leftMap(err ⇒ OError("Trouble Decoding JSON Response as RippleGenericResponse", err))
 

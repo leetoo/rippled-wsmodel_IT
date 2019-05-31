@@ -4,15 +4,15 @@ import scala.concurrent.ExecutionContext
 
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.Json
+import io.circe.{Json, JsonObject}
 
 import com.odenzo.ripple.apps.ProdBalances.{CurrenciesForAccount, scroll}
-import com.odenzo.ripple.integration_testkit.{OtherTestCommandHarness, RequestResponse, RippleSender, TestCallResults}
+import com.odenzo.ripple.integration_testkit.{JsonReqRes, OtherTestCommandHarness, RequestResponse, RippleSender, TestCallResults}
 import com.odenzo.ripple.models.atoms.{AccountAddr, Currency, CurrencyAmount, Drops, FiatAmount, Script, TrustLine, TxnSequence}
 import com.odenzo.ripple.models.support.{Codec, Commands, RippleAnswer, RippleGenericError, RippleRq, RippleRs}
 import com.odenzo.ripple.models.wireprotocol.accountinfo.{AccountCurrenciesRq, AccountCurrenciesRs, AccountInfoRq, AccountInfoRs, AccountLinesRq, AccountLinesRs}
 import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppRippleError}
+import com.odenzo.ripple.localops.utils.caterrors.{AppError, OError}
 
 /**
   * Playing around app to fetch some balances from RIppled in production/public.
@@ -121,35 +121,34 @@ object BusinessCalls extends StrictLogging {
       cmd: Codec[A, B],
       rq: A
   )(implicit comm: RippleSender, ec: ExecutionContext): ErrorOr[RippleAnswer[B]] = {
-    val rqJson: Json                                      = cmd.encode(rq)
-    val callResults: ErrorOr[RequestResponse[Json, Json]] = comm.ask(rqJson)
-    val rs: Either[AppError, RippleAnswer[B]]             = callResults.flatMap(rr ⇒ cmd.decode(rr.rs))
+    val rqJson: JsonObject = cmd.encode(rq)
+    val callResults: ErrorOr[JsonReqRes]      = comm.ask(rqJson)
+    val rs: Either[AppError, RippleAnswer[B]] = callResults.flatMap(rr ⇒ cmd.decode(rr.rs))
     rs
   }
 
   /**
-  *   This lifts RippleGenericError to top level error. Unfortunately, on success it throws away the msg id.
-    *   
+    *   This lifts RippleGenericError to top level error. Unfortunately, on success it throws away the msg id.
+    *
     * @param v
     * @tparam B
     * @return
     */
-  def liftRippleAnswerError[B<:RippleRs](v: ErrorOr[RippleAnswer[B]]): ErrorOr[B] = {
+  def liftRippleAnswerError[B <: RippleRs](v: ErrorOr[RippleAnswer[B]]): ErrorOr[B] = {
     v.flatMap { ans: RippleAnswer[B] ⇒
       ans match {
-      case RippleAnswer(id,msg,Left(rge))  ⇒ new AppRippleError(s"Ripple Generic Error for $id", rge).asLeft
-      case RippleAnswer(id,msg,Right(r)) ⇒ r.asRight
+        case RippleAnswer(id, msg, Left(rge)) ⇒ new OError(s"Ripple Generic Error for $id" + rge).asLeft
+        case RippleAnswer(id, msg, Right(r))  ⇒ r.asRight
+      }
     }
-  }
   }
 
   def liftRippleError[B](v: ErrorOr[Either[RippleGenericError, B]]): ErrorOr[B] = {
-    v.flatMap{
-      case Left(rge)  ⇒ new AppRippleError("Ripple Generic Error", rge).asLeft
+    v.flatMap {
+      case Left(rge)  ⇒ new OError("Ripple Generic Error: " + rge).asLeft
       case Right(ans) ⇒ ans.asRight
     }
   }
-
 
   def checkAccountCurrencies(account: AccountAddr)(implicit com: RippleComContext): ErrorOr[CurrenciesForAccount] = {
 
@@ -157,10 +156,9 @@ object BusinessCalls extends StrictLogging {
       CurrenciesForAccount(send = rs.send_currencies, receive = rs.receive_currencies)
     }
 
-
-    val cmd: Codec[AccountCurrenciesRq, AccountCurrenciesRs]   = Commands.accountCurrenciesCmd
-    val rq: AccountCurrenciesRq                                = AccountCurrenciesRq(account)
-    val call: ErrorOr[RippleAnswer[AccountCurrenciesRs]] = prodCall(cmd, rq, com)
+    val cmd: Codec[AccountCurrenciesRq, AccountCurrenciesRs] = Commands.accountCurrenciesCmd
+    val rq: AccountCurrenciesRq                              = AccountCurrenciesRq(account)
+    val call: ErrorOr[RippleAnswer[AccountCurrenciesRs]]     = prodCall(cmd, rq, com)
     val done: ErrorOr[Either[RippleGenericError, CurrenciesForAccount]] = call.map { answer ⇒
       answer.ans.map(postProcess)
     }
@@ -170,7 +168,6 @@ object BusinessCalls extends StrictLogging {
     // or can lift earlier in this case. Perhaps a Functor / Nested approach is useful
     //val ok: ErrorOr[AccountCurrenciesRs] = liftRippleError(callResult)
     //ok.map(postProcess)
-
 
   }
 
@@ -182,11 +179,11 @@ object BusinessCalls extends StrictLogging {
     * @return ErrorOr the account balance for given account in Drops (XRP Balance)
     */
   def signingInfo(account: AccountAddr)(implicit context: RippleComContext): Either[AppError, TxnSequence] = {
-    val accountInfo = Commands.accountInfoCmd
-    val harness = new OtherTestCommandHarness(accountInfo, context.con)
-    val rq = AccountInfoRq(account)
+    val accountInfo                                       = Commands.accountInfoCmd
+    val harness                                           = new OtherTestCommandHarness(accountInfo, context.con)
+    val rq                                                = AccountInfoRq(account)
     val rs: TestCallResults[AccountInfoRq, AccountInfoRs] = harness.send(rq)(context.ec)
-    val txnSequence: Either[AppError, TxnSequence] = rs.result.map(v ⇒ v.account_data.sequence)
+    val txnSequence: Either[AppError, TxnSequence]        = rs.result.map(v ⇒ v.account_data.sequence)
     txnSequence.foreach((d: TxnSequence) ⇒ logger.info(s"Txn Sequence ${account.show}  = ${d.toString}"))
     txnSequence
   }

@@ -11,9 +11,12 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.ws.{InvalidUpgradeResponse, ValidUpgrade, WebSocketUpgradeResponse}
 import akka.stream.{ActorMaterializer, Attributes, OverflowStrategy, QueueOfferResult}
 import akka.stream.scaladsl.{Keep, RunnableGraph, Sink, SinkQueueWithCancel, Source, SourceQueueWithComplete}
+import cats.data.EitherT
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.Json
+import io.circe.{Json, JsonObject}
+
+import io.circe.syntax._
 
 import com.odenzo.ripple.models.support.RippleWsNode
 import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.{ErrorOr, ErrorOrFT}
@@ -50,7 +53,7 @@ class WebSocketJsonQueueFactory(node: RippleWsNode, logMessages: Boolean = true,
         subProtocol.getOrElse("No Sub Protocol").asRight
 
       case InvalidUpgradeResponse(rs: HttpResponse, cause: String) ⇒
-        val err = new OError(s"Upgrade of WebSocket Failed: $cause")
+        val err = new OError(s"Upgrade of WebSocket Failed: $cause and Raw Response $rs")
         logger.error(err.show)
         err.asLeft
 
@@ -105,8 +108,7 @@ class WebSocketJsonQueueFactory(node: RippleWsNode, logMessages: Boolean = true,
 /** This is a little more generic instance, although typically both A and B as Json.
   *  @param src
   *  @param sink
-  *  @tparam A
-  *  @tparam B
+
   */
 class WebSocketJsonConnection(
                                src: SourceQueueWithComplete[Json],
@@ -122,7 +124,7 @@ class WebSocketJsonConnection(
     *
     *
     */
-  def offer(rq: Json)(implicit ec: ExecutionContext): ErrorOrFT[String] = {
+  def offer(rq: JsonObject)(implicit ec: ExecutionContext): ErrorOrFT[String] = {
     logger.trace("You Sent an Raw Send - No Syncing Not MT Safe")
     // This is a future just to put on the outbound queue to send.
     val offer: ErrorOrFT[String] = pushRequest(rq)
@@ -131,7 +133,7 @@ class WebSocketJsonConnection(
   }
 
   /** Experiment to block on offering but NOT on the pull from sink */
-  def offerSync(rq: Json)(implicit ec: ExecutionContext): ErrorOrFT[String] = {
+  def offerSync(rq: JsonObject)(implicit ec: ExecutionContext): ErrorOrFT[String] = {
     logger.trace("You Sent an Sync on Offer - Not MT Safe and kind of Worthless.")
     val offerTimeout: Duration = Duration("4 seconds")
 
@@ -149,17 +151,17 @@ class WebSocketJsonConnection(
   }
 
   /** Synchronous send completes the future on Sink. <em>Not Multithread Safe</em><em>IMPURE</em>  */
-  def ask(rq: Json)(implicit ec: ExecutionContext): ErrorOr[RequestResponse[Json, Json]] = {
+  def ask(rq: JsonObject)(implicit ec: ExecutionContext): ErrorOr[JsonReqRes] = {
     ErrorOrFT.sync(send(rq), Duration("10 seconds"))
   }
 
-  def send(rq: Json)(implicit ec: ExecutionContext): ErrorOrFT[RequestResponse[Json, Json]] = {
+  def send(rq: JsonObject)(implicit ec: ExecutionContext): EitherT[Future, AppError, JsonReqRes] = {
     logger.debug(s"ASync Send To Node: $node")
 
     // This is a future just to put on the outbound queue to send.
     val offer: ErrorOrFT[String]                        = pushRequest(rq)
     val ans: ErrorOrFT[Json]                            = offer.flatMap(x ⇒ pullResult())
-    val wrapped: ErrorOrFT[RequestResponse[Json, Json]] = ans.map(rs ⇒ RequestResponse(rq, rs))
+    val wrapped: EitherT[Future, AppError, JsonReqRes] = ans.map(rs ⇒ JsonReqRes(rq.asJson, rs))
     wrapped
   }
 
@@ -178,7 +180,7 @@ class WebSocketJsonConnection(
     *
     *  @return
     */
-  def pushRequest(rq: Json)(implicit ec: ExecutionContext): ErrorOrFT[String] = {
+  def pushRequest(rq: JsonObject)(implicit ec: ExecutionContext): ErrorOrFT[String] = {
     /*
       The contract for offer returns a Future that may fail, if the previous future hasn't completed.
       Hopefully this will change in future, but for now we make single threaded here.
@@ -191,7 +193,7 @@ class WebSocketJsonConnection(
      */
 
     val res: Future[Either[AppError, String]] = src
-                                                          .offer(rq)
+                                                          .offer(rq.asJson)
                                                           .map {
         case QueueOfferResult.Enqueued    ⇒ "QueueOfferResult.Enqueued".asRight
         case QueueOfferResult.Dropped     ⇒ OError("QueueOfferResult.Dropped").asLeft
@@ -204,7 +206,7 @@ class WebSocketJsonConnection(
         case NonFatal(e)              ⇒ new AppException("Recovered: Not -Unknown Error + to Queue", e).asLeft
       }
 
-    ErrorOrFT(res).leftMap(ex ⇒ new AppJsonError("Error Pushing Request", rq, Some(ex)))
+    ErrorOrFT(res).leftMap(ex ⇒ new AppJsonError("Error Pushing Request", rq.asJson, Some(ex)))
 
   }
 
