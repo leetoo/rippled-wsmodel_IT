@@ -13,7 +13,7 @@
         <encoder>
             <!-- %X{akkaTimestamp} [%X{sourceThread}] -->
             <pattern>
-                LBT:%.-1level %d{mm:ss.SSS} [%lo] [%t] ACTOR:[%X{akkaSource}] %F:%L - %message%n%rEx
+                LBT:%.-1level %d{mm:ss.SSS}  %F:%L - %message%n%rEx
             </pattern>
 
         </encoder>

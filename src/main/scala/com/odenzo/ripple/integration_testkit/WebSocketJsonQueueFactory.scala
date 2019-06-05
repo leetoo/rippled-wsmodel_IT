@@ -156,7 +156,7 @@ class WebSocketJsonConnection(
   }
 
   def send(rq: JsonObject)(implicit ec: ExecutionContext): EitherT[Future, AppError, JsonReqRes] = {
-    logger.debug(s"ASync Send To Node: $node")
+    //logger.debug(s"ASync Send To Node: $node")
 
     // This is a future just to put on the outbound queue to send.
     val offer: ErrorOrFT[String]                        = pushRequest(rq)

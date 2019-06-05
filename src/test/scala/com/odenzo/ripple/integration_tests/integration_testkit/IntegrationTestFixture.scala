@@ -67,6 +67,7 @@ trait IntegrationTestFixture
   def getOrLog[T](ee: ErrorOr[T], msg: String = "Error: ", loggger: Logger = logger): T = {
     ee.leftMap { e ⇒
       logger.error(s"$msg: " + AppError.summary(e))
+      logger.error(s"$msg: " + e.show)
       assert(false, s"Auto Test of $msg")
 
     }

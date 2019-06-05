@@ -1,5 +1,6 @@
 package com.odenzo.ripple.fixturesgen
 
+import io.circe.syntax._
 import java.nio.file.Path
 import scala.concurrent.ExecutionContextExecutor
 
@@ -12,7 +13,9 @@ import com.odenzo.ripple.integration_tests.integration_testkit.IntegrationTestFi
 import com.odenzo.ripple.localops.utils.CirceUtils
 import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.localops.utils.caterrors.{AppError, OError}
+import com.odenzo.ripple.models.atoms.TxBlob
 import com.odenzo.ripple.models.support.{RippleEngineResult, RippleGenericError, RippleGenericResponse, RippleGenericSuccess}
+import com.odenzo.ripple.models.wireprotocol.transactions.{SubmitRq, SubmitRs}
 
 /**
   * Helpers to run tests and save results to a JSON file for regression testing later.
@@ -57,19 +60,27 @@ trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging wi
     }
   }
 
-
   def doDecodingCall[T](rq: JsonObject, decoder: Decoder[T]): Either[AppError, T] = {
     doCall(rq).flatMap(v ⇒ CirceUtils.decode(v.rs, decoder))
   }
 
   def doCall(rq: JsonObject): ErrorOr[JsonReqRes] = {
-    testServerConn.ask(rq)
+    // Serializer does this too, but needed for clean fixture generation
+    val cleanRq = CirceUtils.pruneNullFields(rq)
+    testServerConn.ask(cleanRq)
   }
 
+  /** Shifts generic and engine failures to left */
   def decodeTxnCall[T](rr: JsonReqRes, decoder: Decoder[T]): Either[AppError, T] = {
     val grs: RippleGenericResponse = getOrLog(CirceUtils.decode(rr.rs, Decoder[RippleGenericResponse]))
     grs match {
-      case ok: RippleGenericSuccess ⇒ CirceUtils.decode(ok.result, decoder)
+      case ok: RippleGenericSuccess ⇒
+        val res =  shiftEngineErrorToLeft(ok).flatMap(v⇒ CirceUtils.decode(v.result, decoder) )
+        res.left.foreach { err: AppError ⇒
+             logger.error(s"Txn Error: ${err.show}  \n Conversation: ${reqres2string(rr)}")
+        }
+          res
+
       case bad: RippleGenericError  ⇒
         logger.debug(s"Response: ${rr.rs.spaces4}")
         logger.error(s"Bad Result $bad \nFrom\n ${rr.rq.spaces4}")
@@ -82,6 +93,13 @@ trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging wi
     doCmdCallKeepJson(rq, resultDecoder).map(_._1)
   }
 
+  /** Sends the rqJson object to rippled server, stripping x=null fields.
+  *
+    * @param rq
+    * @param decoder Decoder to apply to the result field of the response json.
+    * @tparam T
+    * @return JSON Request and Response, w/ Request stripped of null fields.
+    */
   def doCmdCallKeepJson[T](rq: JsonObject, decoder: Decoder[T]): Either[AppError, (T, JsonReqRes)] = {
     val jsons: ErrorOr[JsonReqRes] = doCall(rq)
     val res: Either[AppError, T]   = jsons.flatMap(v => parseReqRes(v, decoder))
@@ -100,15 +118,7 @@ trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging wi
      obj ← parseTxnRqRs(rr,decoder)
     } yield (obj,rr)
   }
-//
-//  def doSubmit[T](txBlob:String, decoder:Decoder[T]): Either[AppError,T] = {
-//    // Bad submit is not giving me error code.
-//    val blobWithSig = TxBlob(txBlob)
-//    val rq = SubmitRq(blobWithSig, fail_hard = false)
-//    val rs: Either[AppError, SubmitRs] = doTxnCall(rq.asJson, SubmitRs.decoder)
-//    // Decoder the SubmitRs is its succesfull
-//
-//  }
+
 
   /** Filters out success = false generic errors */
   def parseReqRes[T](rr: JsonReqRes, decoder: Decoder[T]): Either[AppError, T] = {
