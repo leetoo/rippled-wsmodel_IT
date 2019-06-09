@@ -26,25 +26,21 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
 
   import cats.implicits._
 
-  val secureRND: SecureRandom = SecureRandom.getInstanceStrong
-
-  def makePassword(): String = {
-    secureRND.generateSeed(4) // 32 bit int
-    UUID.randomUUID().toString
-  }
 
   test("secp256k1 fixture generator") {
     // Create some new accounts, activate the first with Genesis.
     // Activate the remainder with the first account.
     // Do one more txn to topup the first of the  accounts.
     // We DO NOT user the create account helper because want the raw jsons.
-    val keyType = "secp256k1"
-    val results: Either[AppError, List[AccountKeys]] = generateFixture(keyType, 10)
-    val keys = getOrLog(results)
-    val more: List[(TrustSetTx, AccountKeys)] = generateAdditionalTxn(keys)
-    val moreResults: List[(TraceRes[SignRs], TraceRes[SubmitRs])] = getOrLog(executeTransactions(more))
+    val keyType                                      = "secp256k1"
+    val keys: List[AccountKeys] = getOrLog(generateFixture(keyType, 10))
+    
 
-    // Log to disk 
+    val more: List[(TrustSetTx, AccountKeys)]                     = generateAdditionalTxn(keys)
+    val moreResults: List[(TraceRes[SignRs], TraceRes[SubmitRs])] = getOrLog(executeOnServer(more))
+    val signRqRs: List[JsonReqRes]                                = moreResults.map(v ⇒ v._1.rr)
+    LogHelpers.logAnswerToFile(s"logs/${keyType}_more_txn.json", signRqRs)
+    // Log to disk
 
   }
 
@@ -54,9 +50,12 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
     // Do one more txn to topup the first of the  accounts.
     // We DO NOT user the create account helper because want the raw jsons.
     val keyType = "ed25519"
-    val results = generateFixture(keyType, 10)
-    getOrLog(results)
+    val keys = getOrLog(generateFixture(keyType, 10)) // This logs the inital transaction to files
 
+    val more: List[(TrustSetTx, AccountKeys)]                     = generateAdditionalTxn(keys)
+    val moreResults: List[(TraceRes[SignRs], TraceRes[SubmitRs])] = getOrLog(executeOnServer(more))
+    val signRqRs: List[JsonReqRes]                                = moreResults.map(v ⇒ v._1.rr)
+    LogHelpers.logAnswerToFile(s"logs/${keyType}_more_txn.json", signRqRs)
   }
 
   /**
@@ -76,8 +75,6 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
     fundedAccounts.tail.map(acctKeys ⇒ genTrustLine(issuer, acctKeys, trustAmount))
   }
 
-
-
   /**
     *
     * @param issuer
@@ -86,13 +83,11 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
     * @return List of RippleTransaction to sign and submit using the associated AccountKeys
     */
   def genTrustLine(issuer: AccountAddr, account: AccountKeys, amount: FiatAmount): (TrustSetTx, AccountKeys) = {
-
     val commonTx = CommonTx(
       fee = Some(Drops.fromXrp("100")),
       signingPubKey = Option(account.signingPubKey),
       memos = Memos.fromText("Test Transaction")
     )
-
     // Need to add the account setting the trust line with issuer
     (TrustSetTx(account.address, amount, base = commonTx), account)
   }
