@@ -1,19 +1,19 @@
-package com.odenzo.ripple.integration_tests.integration_testkit
+package com.odenzo.ripple.integration_testkit
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 
-import io.circe.{Json, JsonObject}
 import io.circe.syntax._
-import org.scalatest.{Assertion, FunSuite}
+import io.circe.{Json, JsonObject}
+import org.scalatest.FunSuite
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.{Seconds, Span}
 
-import com.odenzo.ripple.integration_testkit.{JsonReqRes, RequestResponse, WebSocketJsonConnection, WebSocketJsonQueueFactory}
+import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.models.wireprotocol.serverinfo.ServerInfoRq
 import com.odenzo.ripple.models.wireprotocol.subscriptions.SubscribeLedgerRq
-import com.odenzo.ripple.localops.utils.caterrors
-import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.testkit.comms.{WebSocketJsonConnection, WebSocketJsonQueueFactory}
+import com.odenzo.ripple.testkit.helpers.JsonReqRes
 
 class WebSocketQ$ITest extends FunSuite with IntegrationTestFixture with PatienceConfiguration {
 

@@ -1,4 +1,4 @@
-package com.odenzo.ripple.integration_testkit
+package com.odenzo.ripple.testkit.comms
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -9,18 +9,18 @@ import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.ws.{InvalidUpgradeResponse, ValidUpgrade, WebSocketUpgradeResponse}
-import akka.stream.{ActorMaterializer, Attributes, OverflowStrategy, QueueOfferResult}
 import akka.stream.scaladsl.{Keep, RunnableGraph, Sink, SinkQueueWithCancel, Source, SourceQueueWithComplete}
+import akka.stream.{ActorMaterializer, Attributes, OverflowStrategy, QueueOfferResult}
 import cats.data.EitherT
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
+import io.circe.syntax._
 import io.circe.{Json, JsonObject}
 
-import io.circe.syntax._
-
+import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.{ErrorOr, ErrorOrFT}
+import com.odenzo.ripple.models.utils.caterrors.{AppError, AppException, AppJsonError, ErrorOrFT, OError}
 import com.odenzo.ripple.models.support.RippleWsNode
-import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.{ErrorOr, ErrorOrFT}
-import com.odenzo.ripple.localops.utils.caterrors.{AppError, AppException, AppJsonError, ErrorOrFT, OError}
+import com.odenzo.ripple.testkit.helpers.JsonReqRes
 
 /** Long running WebSocket now pruned to just Json => ErrorOr[Json]
   *  This does a synchronous send and recieve, but due to the wonders of Akka Stream Queue still not MT safe.

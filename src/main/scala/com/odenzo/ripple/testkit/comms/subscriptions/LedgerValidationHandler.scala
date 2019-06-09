@@ -1,8 +1,8 @@
-package com.odenzo.ripple.integration_testkit.subscriptions
+package com.odenzo.ripple.testkit.comms.subscriptions
 
 import com.odenzo.ripple.models.atoms.{LedgerIndex, RippleTime}
 import com.odenzo.ripple.models.support.RippleGenericResponse
-import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
 
 /** Sent as an event whenever we know the validated ledger has been incremented/changed */
 case class ValidatedLedgerChangedEv(ledger: LedgerIndex, time: RippleTime)

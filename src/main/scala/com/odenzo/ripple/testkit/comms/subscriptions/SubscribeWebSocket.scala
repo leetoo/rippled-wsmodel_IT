@@ -1,4 +1,4 @@
-package com.odenzo.ripple.integration_testkit.subscriptions
+package com.odenzo.ripple.testkit.comms.subscriptions
 
 import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem}
@@ -7,10 +7,10 @@ import akka.stream.{ActorMaterializer, Supervision}
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
-import com.odenzo.ripple.integration_testkit.FlowSegments
-import com.odenzo.ripple.integration_testkit.subscriptions.SubscribeWebSocket.{ACK, COMPLETE, INITIALIZE, SubscribeRs}
+import com.odenzo.ripple.testkit.comms.FlowSegments
+import com.odenzo.ripple.testkit.comms.subscriptions.SubscribeWebSocket.{ACK, COMPLETE, INITIALIZE, SubscribeRs}
+import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.models.support.RippleWsNode
-import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
 
 /**
   * Subscriptions works by sending a subcribe over websocket and all the results come back

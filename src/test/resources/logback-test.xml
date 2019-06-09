@@ -13,21 +13,20 @@
         <encoder>
             <!-- %X{akkaTimestamp} [%X{sourceThread}] -->
             <pattern>
-                LBT:%.-1level %d{mm:ss.SSS}  %F:%L - %message%n%rEx
+                ITT:%.-1level %d{mm:ss.SSS}  %F:%L - %message%n%rEx
             </pattern>
 
         </encoder>
     </appender>
 
-    <logger name="odenzo" level="DEBUG"/>
-    <logger name="com.odenzo" level="DEBUG"/>
+
+    <logger name="com.odenzo" level="WARN"/>
     <logger name="akka" level="TRACE"/>
     <logger name="com.zaxxer.hikari" level="INFO"/>
-    <logger name="slick" level="INFO"/>
     <logger name="com.odenzo.ripple.models" level="DEBUG"/>
     <logger name="com.odenzo.ripple.test.harness" level="DEBUG"/>
 
-    <logger name="com.odenzo.ripple.core.TxnsPendingValidation" level="INFO"/>
+    <logger name="com.odenzo.ripple.core.testkit.comms" level="INFO"/>
     <logger name="com.odenzo.ripple.core.RippleNetworkConfig" level="INFO"/>
 
     <logger name="com.odenzo.ripple.core.com.odenzo.ripple.testkit.coms.OneOffWebSocket" level="INFO"/>
@@ -39,8 +38,4 @@
     </root>
 
 
-    <logger name="org.apache.http" level="DEBUG"/>
-
-
-    <logger name="com.gargoylesoftware" level="DEBUG"/>
 </configuration>

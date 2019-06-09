@@ -1,26 +1,22 @@
-package com.odenzo.ripple.integration_testkit
+package com.odenzo.ripple.testkit.comms
 
 import java.util.concurrent.TimeUnit
-
-import cats._
-import cats.data._
-import cats.implicits._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl._
-import akka.http.scaladsl.model.HttpEntity.Strict
 import akka.http.scaladsl.model.ws._
-import akka.stream.{ActorMaterializer, ThrottleMode}
 import akka.stream.scaladsl.{Flow, Keep, Sink, SinkQueueWithCancel, Source}
+import akka.stream.{ActorMaterializer, ThrottleMode}
+import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 
-import com.odenzo.ripple.localops.utils.CirceUtils
-import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.localops.utils.caterrors.OError
+import com.odenzo.ripple.models.utils.CirceUtils
+import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.models.utils.caterrors.OError
 
 /** Common flow pieces used/assembled into specific end-to-end flows.
   *  These are Akka flows designed to send requests to a Ripple Server (over websockets) and retrieve the response.

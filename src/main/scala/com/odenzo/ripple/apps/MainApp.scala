@@ -1,19 +1,15 @@
 package com.odenzo.ripple.apps
 
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
-import akka.Done
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.{Decoder, Encoder}
 
-import com.odenzo.ripple.integration_testkit.{RippleSender, WebSocketJsonConnection, WebSocketJsonQueueFactory}
-import com.odenzo.ripple.models.atoms.{AccountAddr, CurrencyAmount}
+import com.odenzo.ripple.models.utils.caterrors.AppError
+import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.models.atoms.AccountAddr
 import com.odenzo.ripple.models.support.{Codec, RippleRq, RippleRs, RippleWsNode}
-import com.odenzo.ripple.models.wireprotocol.accountinfo.{AccountLinesRq, AccountLinesRs}
-import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.localops.utils.caterrors.{AppError}
+import com.odenzo.ripple.testkit.comms.{RippleSender, WebSocketJsonConnection, WebSocketJsonQueueFactory}
 
 /** We should actually put this in the RippleModels section with a request object having a default codec.
   *   Default because sometimes don't need to decode the final results and can make more efficient RippleRs subclass.

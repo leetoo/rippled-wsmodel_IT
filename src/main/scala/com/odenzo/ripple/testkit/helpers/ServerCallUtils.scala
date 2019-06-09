@@ -1,90 +1,47 @@
-package com.odenzo.ripple.fixturesgen
-
-import io.circe.syntax._
-import java.nio.file.Path
-import scala.concurrent.ExecutionContextExecutor
+package com.odenzo.ripple.testkit.helpers
 
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.{Decoder, Json, JsonObject}
-import org.scalatest.concurrent.PatienceConfiguration
+import io.circe.{Decoder, JsonObject}
 
-import com.odenzo.ripple.integration_testkit.{JsonReqRes, RequestResponse, WebSocketJsonConnection, WebSocketJsonQueueFactory}
-import com.odenzo.ripple.integration_tests.integration_testkit.IntegrationTestFixture
-import com.odenzo.ripple.localops.utils.CirceUtils
-import com.odenzo.ripple.localops.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.localops.utils.caterrors.{AppError, OError}
-import com.odenzo.ripple.models.atoms.TxBlob
+import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
+import com.odenzo.ripple.models.utils.caterrors.{AppError, AppJsonDecodingError, OError}
 import com.odenzo.ripple.models.support.{RippleEngineResult, RippleGenericError, RippleGenericResponse, RippleGenericSuccess}
-import com.odenzo.ripple.models.wireprotocol.transactions.{SubmitRq, SubmitRs}
+import com.odenzo.ripple.models.utils.CirceUtils
 
 /**
-  * Helpers to run tests and save results to a JSON file for regression testing later.
+  * *LOW LEVEL* Helper utilities to send commands and transaction to Riplpe Server and parse results
+  *  This demands a serverConnection:WebSocketJsonConnection to be supplied
   */
-trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging with PatienceConfiguration {
+trait ServerCallUtils extends  StrictLogging {
 
-  private val testNetConnAttempt: ErrorOr[WebSocketJsonConnection] = new WebSocketJsonQueueFactory(testNode).connect()
-  val testServerConn: WebSocketJsonConnection                      = getOrLog(testNetConnAttempt)
-  implicit val ec: ExecutionContextExecutor                        = ecGlobal
-
-  /** This will strip "field"=null */
-  def reqres2string(rr: JsonReqRes): String = {
-    val rq = CirceUtils.print(rr.rq)
-    val rs = CirceUtils.print(rr.rs)
-    s"""\n\n{\n\t "Request":$rq, \n\t "Response":$rs\n } """
-  }
-
-  /**  Quick hack to log in a way we can paste into regression testing files */
-  def logAnswer(ans: ErrorOr[JsonReqRes]): Unit = {
-    ans.foreach(rr ⇒ logger.info(reqres2string(rr)))
-
-  }
-
-  /** Quick hack to log in a way we can paste into regression testing files */
-  def logAnswer(ans: List[JsonReqRes]): Unit = {
-    val arr = ans.map(reqres2string).mkString("[\n", ",\n", "\n]")
-    logger.info(arr)
-
-  }
-
-  def logAnswerToFile(file: String, ans: List[JsonReqRes]): Path = {
-    val arr: String = ans.map(reqres2string).mkString("[\n", ",\n", "\n]")
-    overwriteFileWith(file, arr)
-
-  }
 
   import cats.implicits._
 
-  def doFixture(requests: List[JsonObject]): Either[AppError, List[String]] = {
-    requests.traverse { rq ⇒
-      doCall(rq).map(reqres2string)
-    }
+  /** Proxy to ServerConnection to minimize code clutter */
+  def callServer(rq: JsonObject): ErrorOr[JsonReqRes] = {
+    ServerConnection.doCall(rq)
   }
 
   def doDecodingCall[T](rq: JsonObject, decoder: Decoder[T]): Either[AppError, T] = {
-    doCall(rq).flatMap(v ⇒ CirceUtils.decode(v.rs, decoder))
-  }
-
-  def doCall(rq: JsonObject): ErrorOr[JsonReqRes] = {
-    // Serializer does this too, but needed for clean fixture generation
-    val cleanRq = CirceUtils.pruneNullFields(rq)
-    testServerConn.ask(cleanRq)
+    callServer(rq).flatMap(v ⇒ CirceUtils.decode(v.rs, decoder))
   }
 
   /** Shifts generic and engine failures to left */
   def decodeTxnCall[T](rr: JsonReqRes, decoder: Decoder[T]): Either[AppError, T] = {
-    val grs: RippleGenericResponse = getOrLog(CirceUtils.decode(rr.rs, Decoder[RippleGenericResponse]))
-    grs match {
+    val grs: Either[AppJsonDecodingError, RippleGenericResponse] = CirceUtils.decode(rr.rs, Decoder[RippleGenericResponse])
+
+    grs.flatMap {
       case ok: RippleGenericSuccess ⇒
         val res =  shiftEngineErrorToLeft(ok).flatMap(v⇒ CirceUtils.decode(v.result, decoder) )
         res.left.foreach { err: AppError ⇒
-             logger.error(s"Txn Error: ${err.show}  \n Conversation: ${reqres2string(rr)}")
+             logger.error(s"Txn Error: ${err.show}  \n Conversation: ${LogHelpers.reqres2string(rr)}")
         }
           res
 
       case bad: RippleGenericError  ⇒
         logger.debug(s"Response: ${rr.rs.spaces4}")
         logger.error(s"Bad Result $bad \nFrom\n ${rr.rq.spaces4}")
-        logAnswer(rr.asRight)
+        LogHelpers.logAnswer(rr.asRight)
         AppError("Failed Transaction").asLeft
     }
   }
@@ -101,20 +58,21 @@ trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging wi
     * @return JSON Request and Response, w/ Request stripped of null fields.
     */
   def doCmdCallKeepJson[T](rq: JsonObject, decoder: Decoder[T]): Either[AppError, (T, JsonReqRes)] = {
-    val jsons: ErrorOr[JsonReqRes] = doCall(rq)
+    val jsons: ErrorOr[JsonReqRes] = callServer(rq)
     val res: Either[AppError, T]   = jsons.flatMap(v => parseReqRes(v, decoder))
     (res, jsons).mapN((_, _))
   }
 
   /** Do the call shifting generic and txn engine errors to Left */
   def doTxnCall[T](rq: JsonObject, decoder: Decoder[T]): Either[AppError, T] = {
-    doCall(rq).flatMap(parseTxnRqRs(_, decoder))
+    callServer(rq).flatMap(parseTxnRqRs(_, decoder))
   }
+
 
   /** Do the call shifting generic and txn engine errors to Left */
   def doTxnCallKeepJson[T](rq: JsonObject, decoder: Decoder[T]): Either[AppError, (T, JsonReqRes)] = {
     for {
-     rr ← doCall(rq)
+     rr ← callServer(rq)
      obj ← parseTxnRqRs(rr,decoder)
     } yield (obj,rr)
   }
@@ -128,7 +86,6 @@ trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging wi
       case bad: RippleGenericError ⇒
         logger.debug(s"Response: ${rr.rs.spaces4}")
         logger.error(s"Bad Result $bad \nFrom\n ${rr.rq.spaces4}")
-        logAnswer(rr.asRight)
         AppError("Failed ").asLeft
     }
   }
@@ -147,6 +104,7 @@ trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging wi
       else new OError(s"Engine Failure ${er.engine_result_message} " + er).asLeft
     }
   }
+
   def parseTxnRqRs[T](rr: JsonReqRes, decoder: Decoder[T]): Either[AppError, T] = {
 
     CirceUtils
@@ -157,10 +115,6 @@ trait FixtureGeneratorUtils extends IntegrationTestFixture with StrictLogging wi
 
   }
 
-  /** Worth a expirement with Cats Resource handling! */
-  def overwriteFileWith(filePath: String, data: String): Path = {
-    import java.nio.charset.StandardCharsets
-    import java.nio.file.{Files, Paths}
-    Files.write(Paths.get(filePath), data.getBytes(StandardCharsets.UTF_8))
-  }
 }
+
+object ServerCallUtils extends ServerCallUtils
