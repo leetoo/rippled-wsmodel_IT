@@ -8,7 +8,7 @@ import com.odenzo.ripple.models.utils.caterrors.AppError
 import com.odenzo.ripple.models.atoms.{AccountAddr, AccountKeys, TxBlob, TxnSequence}
 import com.odenzo.ripple.models.support.GenesisAccount
 import com.odenzo.ripple.models.utils.CirceUtils
-import com.odenzo.ripple.models.wireprotocol.accountinfo.{AccountInfoRq, AccountInfoRs}
+import com.odenzo.ripple.models.wireprotocol.accountinfo.{AccountInfoRq, AccountInfoRs, WalletProposeRq, WalletProposeRs}
 import com.odenzo.ripple.models.wireprotocol.ledgerinfo.{LedgerAcceptRq, LedgerAcceptRs}
 import com.odenzo.ripple.models.wireprotocol.transactions.{SignRq, SignRs, SubmitRq, SubmitRs}
 
@@ -20,26 +20,7 @@ object ServerOps extends StrictLogging with LogHelpers with ServerCallUtils {
   /** Genesis is a secp account */
   val genesis: AccountKeys = GenesisAccount.accountKeys
 
-  /** This executes a txn by signing it on server. Returns the raw json and decoded responses.
-    * It does not advance the ledger manually.
-    *
-    * @param txjsonRq
-    *
-    * @return THe results of signing and submitting transaciton, including the raw jsons.
-    *         It checks for errors of all types.
-    */
-  def executeAndTraceTxn(txjsonRq: JsonObject, keys: AccountKeys): Either[AppError, (TraceRes[SignRs], TraceRes[SubmitRs])] = {
-    val sign = SignRq(txjsonRq.asJson, keys.master_seed, false, key_type = keys.key_type.v)
-    val signRq = CirceUtils.pruneNullFields(sign.asJsonObject)
-    for {
-      signing <- ServerCallUtils.doCmdCallKeepJson(signRq, Decoder[SignRs])
-      signTR = TraceRes(signing._2, signing._1)
-      submitRq = SubmitRq(signTR.result.tx_blob).asJsonObject
-      submitted ← ServerCallUtils.doTxnCallKeepJson(submitRq.asJsonObject, Decoder[SubmitRs])
-      submitTR = TraceRes(submitted._2, submitted._1)
-    } yield (signTR, submitTR)
-
-  }
+ 
   
 
   /**
@@ -48,7 +29,7 @@ object ServerOps extends StrictLogging with LogHelpers with ServerCallUtils {
     * @param sig
     * @return
     */
-  def serverSignAndSubmit(tx_json: JsonObject, sig: AccountKeys): Either[AppError, SubmitRs] = {
+  def serverSignAndSubmit[T](tx_json: JsonObject, sig: AccountKeys): Either[AppError, SubmitRs] = {
     logger.info(s"Secret: $sig")
     for {
       sign   ← serverSign(tx_json, sig)
@@ -65,7 +46,7 @@ object ServerOps extends StrictLogging with LogHelpers with ServerCallUtils {
   }
 
   /** Submits a fully signed transaction, represented as txblob */
-  def submitTxn(txblob: TxBlob): Either[AppError, SubmitRs] = {
+  def submitTxn[T](txblob: TxBlob): Either[AppError, SubmitRs] = {
     val rq = SubmitRq(txblob, fail_hard = true)
     for {
       rr ← callServer(rq.asJsonObject)
@@ -88,6 +69,13 @@ object ServerOps extends StrictLogging with LogHelpers with ServerCallUtils {
       logger.info(s"Account ${address} Sequence: $s")
       s
     }
+  }
+
+  def makeWallet(keytype: String = "ed25519"): Either[AppError, (AccountKeys, JsonReqRes)] = {
+    val rq = WalletProposeRq(key_type = Some(keytype))
+    doCmdCallKeepJson[WalletProposeRs](rq.asJsonObject, WalletProposeRs.decoder)
+    .map{ case (rs, rr) => (rs.keys, rr) }
+
   }
 
 

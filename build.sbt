@@ -16,7 +16,7 @@ scalacOptions ++= Seq("-feature",
 
 
 lazy val wsmodels = RootProject(file("../rippled-wsmodels"))
-lazy val signing  = RootProject(file("../rippled-signing"))
+lazy val signing  = RootProject(file("../ripple-local-signing"))
 
 lazy val integrationTests = (project in file("."))
   .dependsOn(wsmodels)

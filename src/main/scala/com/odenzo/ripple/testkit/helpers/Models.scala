@@ -3,15 +3,15 @@ package com.odenzo.ripple.testkit.helpers
 import io.circe.{Json, JsonObject}
 
 import com.odenzo.ripple.models.atoms.AccountKeys
-
+import com.odenzo.ripple.models.wireprotocol.transactions.{SignRs, SubmitRs}
+import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.RippleTransaction
 
 /** These are normally objects, but for potential  error cases keep as Json for now */
-case class JsonReqRes(rq:Json, rs:Json)
+case class JsonReqRes(rq: Json, rs: Json)
 
-/** Has the Request Response Json and the decoded result, used for Transaction and Commands */
-case class TraceRes[T](rr:JsonReqRes, result:T)
+object JsonReqRes {
+  def empty = JsonReqRes(Json.Null, Json.Null)
+}
 
+case class TracedRes[T](value:T, rr:JsonReqRes)
 
-trait RippleInstruction
-case class  RippleTxnCommand(txjson:JsonObject, keys:AccountKeys) extends RippleInstruction
-case class  RippleCommand(rq:JsonObject) extends RippleInstruction

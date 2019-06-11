@@ -1,21 +1,17 @@
 package com.odenzo.ripple.fixturesgen
 
-import java.security.SecureRandom
-import java.util.UUID
-
 import io.circe.Decoder
-import io.circe._
 import io.circe.syntax._
 import org.scalatest.FunSuite
 
 import com.odenzo.ripple.integration_testkit.IntegrationTestFixture
-import com.odenzo.ripple.models.atoms.{AccountAddr, AccountKeys, Currency, Drops, FiatAmount, Memos, Script}
+import com.odenzo.ripple.models.atoms.{AccountAddr, AccountKeys, Currency, Drops, FiatAmount, Script}
 import com.odenzo.ripple.models.utils.CirceUtils
 import com.odenzo.ripple.models.utils.caterrors.AppError
-import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.{CommonTx, RippleTransaction, TrustSetTx}
-import com.odenzo.ripple.models.wireprotocol.transactions.{SignRq, SignRs, SubmitRq, SubmitRs}
-import com.odenzo.ripple.testkit.helpers.{JsonReqRes, LogHelpers, ServerCallUtils, ServerOps, TraceRes, TxnFactories}
+import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.TrustSetTx
+import com.odenzo.ripple.models.wireprotocol.transactions.{SignRq, SignRs, SubmitRq}
+import com.odenzo.ripple.testkit.helpers.TxnFactories.RippleTxnCommand
+import com.odenzo.ripple.testkit.helpers.{JsonReqRes, LogHelpers, ServerCallUtils, ServerOps, TraceHelpers, TracedRes, TxnFactories}
 
 /**
   * First fixture is to create some accounts and send a series of transactions that are saved to disk.
@@ -26,21 +22,17 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
 
   import cats.implicits._
 
-
   test("secp256k1 fixture generator") {
     // Create some new accounts, activate the first with Genesis.
     // Activate the remainder with the first account.
     // Do one more txn to topup the first of the  accounts.
     // We DO NOT user the create account helper because want the raw jsons.
-    val keyType                                      = "secp256k1"
+    val keyType                 = "secp256k1"
     val keys: List[AccountKeys] = getOrLog(generateFixture(keyType, 10))
-    
 
-    val more: List[(TrustSetTx, AccountKeys)]                     = generateAdditionalTxn(keys)
-    val moreResults: List[(TraceRes[SignRs], TraceRes[SubmitRs])] = getOrLog(executeOnServer(more))
-    val signRqRs: List[JsonReqRes]                                = moreResults.map(v ⇒ v._1.rr)
-    LogHelpers.logAnswerToFile(s"logs/${keyType}_more_txn.json", signRqRs)
-    // Log to disk
+    val more: Either[AppError, List[JsonReqRes]] = generateAdditionalTxn(keys)
+    more.foreach(LogHelpers.logAnswerToFile(s"logs/${keyType}_more_txn.json", _))
+    
 
   }
 
@@ -50,46 +42,37 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
     // Do one more txn to topup the first of the  accounts.
     // We DO NOT user the create account helper because want the raw jsons.
     val keyType = "ed25519"
-    val keys = getOrLog(generateFixture(keyType, 10)) // This logs the inital transaction to files
+    val keys    = getOrLog(generateFixture(keyType, 10)) // This logs the inital transaction to files
 
-    val more: List[(TrustSetTx, AccountKeys)]                     = generateAdditionalTxn(keys)
-    val moreResults: List[(TraceRes[SignRs], TraceRes[SubmitRs])] = getOrLog(executeOnServer(more))
-    val signRqRs: List[JsonReqRes]                                = moreResults.map(v ⇒ v._1.rr)
-    LogHelpers.logAnswerToFile(s"logs/${keyType}_more_txn.json", signRqRs)
+    val more: Either[AppError, List[JsonReqRes]] = generateAdditionalTxn(keys)
+    more.foreach(LogHelpers.logAnswerToFile(s"logs/${keyType}_more_txn.json", _))
   }
 
   /**
     *
     * @param fundedAccounts Master AccountKeys (with correct address) of activated accounts.
     */
-  def generateAdditionalTxn(fundedAccounts: List[AccountKeys]): List[(TrustSetTx, AccountKeys)] = {
+  def generateAdditionalTxn(fundedAccounts: List[AccountKeys]): Either[AppError, List[JsonReqRes]] = {
 
     // What to do... maybe a TrustSet from tails to head and then transfor some IOU
-    val amount: BigDecimal  = BigDecimal("555.666")
-    val currency: Currency  = Currency("NZD")
-    val issuer: AccountAddr = fundedAccounts.head.address
-    val script              = Script(currency, issuer)
-
+    val amount: BigDecimal      = BigDecimal("555.666")
+    val currency: Currency      = Currency("NZD")
+    val issuer: AccountAddr     = fundedAccounts.head.address
+    val script                  = Script(currency, issuer)
     val trustAmount: FiatAmount = FiatAmount(amount, script)
     // Make all the accounts
-    fundedAccounts.tail.map(acctKeys ⇒ genTrustLine(issuer, acctKeys, trustAmount))
-  }
+    val setTrustLines: List[RippleTxnCommand[TrustSetTx]] =
+      fundedAccounts.tail.map(keys ⇒ TxnFactories.genTrustLine(issuer, keys, trustAmount))
 
-  /**
-    *
-    * @param issuer
-    * @param account
-    * @param amount
-    * @return List of RippleTransaction to sign and submit using the associated AccountKeys
-    */
-  def genTrustLine(issuer: AccountAddr, account: AccountKeys, amount: FiatAmount): (TrustSetTx, AccountKeys) = {
-    val commonTx = CommonTx(
-      fee = Some(Drops.fromXrp("100")),
-      signingPubKey = Option(account.signingPubKey),
-      memos = Memos.fromText("Test Transaction")
-    )
-    // Need to add the account setting the trust line with issuer
-    (TrustSetTx(account.address, amount, base = commonTx), account)
+    val trustlines: Either[AppError, List[JsonReqRes]] = setTrustLines.traverse { rtxc ⇒
+      val signed: Either[AppError, TracedRes[SignRs]] = TraceHelpers.signOnServer(rtxc.tx, rtxc.keys)
+      val submitted                                   = signed.flatMap(tr ⇒ TraceHelpers.submit(tr.value))
+      if (submitted.isLeft) logger.error(s"Submission Failed!")
+      signed.map(_.rr)
+    }
+
+    ServerOps.advanceLedger()
+    trustlines
   }
 
   /**
@@ -100,6 +83,7 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
     * @return list of AccountKeys for created accounts.
     **/
   def generateFixture(keyType: String, numWallets: Int): Either[AppError, List[AccountKeys]] = {
+
     val results: Either[AppError, List[AccountKeys]] = for {
       wallets  <- TxnFactories.makeWallets(numWallets, keyType)
       accounts = wallets.map(_._1)
@@ -112,7 +96,7 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
       // Fund the sending account only, we don't care about these results.
       funder     = ServerOps.genesis
       genSeq     ← ServerOps.getAccountSequence(funder.address)
-      fundSender = TxnFactories.createXrpTransfer(funder, sender.address, Drops.fromXrp(10000), genSeq)
+      fundSender = TxnFactories.genXrpPayment(funder, sender.address, Drops.fromXrp(10000), genSeq)
       funded     ← ServerOps.serverSignAndSubmit(fundSender.asJsonObject, funder)
       _          = ServerOps.advanceLedger()
       txn        ← sendToAll(sender, dests, Drops.fromXrp(555))
@@ -141,14 +125,14 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
   def serverSignTxn(sender: AccountKeys, recv: AccountAddr, amt: Drops): Either[AppError, JsonReqRes] = {
     for {
       seq       <- ServerOps.getAccountSequence(sender.address)
-      txn       = TxnFactories.createXrpTransfer(sender, recv, amt, seq)
+      txn       = TxnFactories.genXrpPayment(sender, recv, amt, seq)
       signRq    = SignRq(txn.asJson, sender.master_seed, offline = false, key_type = sender.key_type.v)
       signJson  = CirceUtils.pruneNullFields(signRq.asJsonObject)
       _         = logger.info(s"Internal Sign: ${signJson.asJson.spaces4}")
       signing   <- ServerCallUtils.doCmdCallKeepJson(signJson, Decoder[SignRs])
       signRs    = signing._1
       submitRq  = SubmitRq(signRs.tx_blob).asJsonObject
-      submitted ← ServerCallUtils.doTxnCallKeepJson(submitRq.asJsonObject, Decoder[SubmitRs])
+      submitted ← ServerCallUtils.doSubmitCallKeepJson(submitRq.asJsonObject)
       _         = ServerOps.advanceLedger()
     } yield signing._2
   }

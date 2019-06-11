@@ -29,10 +29,10 @@ trait LogHelpers extends StrictLogging {
 
   }
 
-  def logAnswerToFile(file: String, ans: List[JsonReqRes]): Path = {
+
+  def logAnswerToFile(file: String, ans: Seq[JsonReqRes]): Path = {
     val arr: String = ans.map(reqres2string).mkString("[\n", ",\n", "\n]")
     overwriteFileWith(file, arr)
-
   }
 
 

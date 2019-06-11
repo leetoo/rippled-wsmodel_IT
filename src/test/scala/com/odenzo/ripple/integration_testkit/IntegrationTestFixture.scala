@@ -6,25 +6,21 @@ import scala.concurrent.ExecutionContextExecutor
 import akka.util.Timeout
 import cats.implicits._
 import com.typesafe.scalalogging.{Logger, StrictLogging}
-import io.circe.Json
 import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, EitherValues, FunSuiteLike, Matchers, Tag}
 
-import com.odenzo.ripple.models.atoms.{AccountAddr, AccountKeys, Drops, LedgerIndex, Memos}
+import com.odenzo.ripple.models.atoms.{Drops, LedgerIndex, Memos}
 import com.odenzo.ripple.models.support.{RippleAccountRW, RippleWsNode}
-import com.odenzo.ripple.models.utils.CirceUtils
 import com.odenzo.ripple.models.utils.caterrors.AppError
 import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
-import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.{CommonTx, RippleTransaction}
-import com.odenzo.ripple.models.wireprotocol.transactions.{SignRs, SubmitRs}
-import com.odenzo.ripple.testkit.helpers.{ServerOps, TraceRes}
+import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.CommonTx
 
 /** Test fixture to mixin to scalatests for integration testing.
   * Bit of a hack as they reference the MyTestServers object which instanciates Akka systems.
   */
 trait IntegrationTestFixture
-  extends StrictLogging
+    extends StrictLogging
     with Matchers
     with EitherValues
     with PatienceConfiguration
@@ -57,11 +53,7 @@ trait IntegrationTestFixture
              sequence = None,
              hash = None,
              lastLedgerSequence = Some(LedgerIndex.MAX),
-             fee = Some(Drops(666))
-             )
-
-  // We also need to get account txn sequence for some tests.
-  def nextTxnSequence(account: AccountAddr): Unit = {}
+             fee = Some(Drops(666)))
 
   /** Gets the enclosed value is not error, if error logs and assert test failure.
     * ONLY USE THIS WITHIN test() { }  blocks please.
@@ -74,7 +66,7 @@ trait IntegrationTestFixture
     * @return
     */
   def getOrLog[T](ee: ErrorOr[T], msg: String = "Error: ", loggger: Logger = logger): T = {
-    ee.leftMap{ e ⇒
+    ee.leftMap { e ⇒
       logger.error(s"$msg: " + AppError.summary(e))
       logger.error(s"$msg: " + e.show)
       assert(false, s"Auto Test of $msg")
@@ -83,22 +75,6 @@ trait IntegrationTestFixture
     ee.right.value
   }
 
-  /** Signs and Submits transactions for execution on server. Does not advance the ledger
-    * This does is a semi-manual way in order to preserve the raw JSON requests and responses.
-    * It will populate the account sequence field appropriately. (None for now as server side signing)
-    *
-    * We need to be able to embed LedgerAdvance (and other?) non transactional commands in here.
-    * Ones that do not need to be signed.
-    * */
-  def executeOnServer[T <: RippleTransaction](
-                                                   txns: List[(T, AccountKeys)]
-                                                 ): ErrorOr[List[(TraceRes[SignRs], TraceRes[SubmitRs])]] = {
-    txns.traverse{
-      case (txn: RippleTransaction, keys: AccountKeys) ⇒
-        val json: Json = RippleTransaction.encoder.apply(txn)
-        CirceUtils.json2jsonobject(json).flatMap(ServerOps.executeAndTraceTxn(_, keys))
-    }
-  }
 
 }
 
