@@ -20,7 +20,7 @@ lazy val signing  = RootProject(file("../ripple-local-signing"))
 
 lazy val integrationTests = (project in file("."))
   .dependsOn(wsmodels)
-  .dependsOn(signing)
+//  .dependsOn(signing)
   .settings(
     commonSettings,
     scalacOptions ++= opts ++ warnings ++ linters,
@@ -37,7 +37,7 @@ lazy val commonSettings = Seq(
   )
 )
 val devSettings = Seq(
-  Test / logBuffered := false,
+  Test / logBuffered := true,
   Test / parallelExecution := false,
 )
 

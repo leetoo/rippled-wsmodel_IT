@@ -17,8 +17,8 @@ import com.odenzo.ripple.models.wireprotocol.transactions.{SignRq, SignRs, Submi
   */
 object ServerOps extends StrictLogging with LogHelpers with ServerCallUtils {
 
-  /** Genesis is a secp account */
-  val genesis: AccountKeys = GenesisAccount.accountKeys
+  /** Genesis is a secp account with no regular keys */
+  val genesis: FullKeyPair = FullKeyPair(GenesisAccount.accountKeys, None)
 
  
   
@@ -71,10 +71,10 @@ object ServerOps extends StrictLogging with LogHelpers with ServerCallUtils {
     }
   }
 
-  def makeWallet(keytype: String = "ed25519"): Either[AppError, (AccountKeys, JsonReqRes)] = {
+  def makeWallet(keytype: String = "ed25519"): Either[AppError, (FullKeyPair, JsonReqRes)] = {
     val rq = WalletProposeRq(key_type = Some(keytype))
     doCmdCallKeepJson[WalletProposeRs](rq.asJsonObject, WalletProposeRs.decoder)
-    .map{ case (rs, rr) => (rs.keys, rr) }
+    .map{ case (rs, rr) => (FullKeyPair(rs.keys,None), rr) }
 
   }
 

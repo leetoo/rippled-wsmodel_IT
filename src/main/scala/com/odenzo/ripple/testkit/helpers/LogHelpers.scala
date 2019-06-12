@@ -13,7 +13,7 @@ trait LogHelpers extends StrictLogging {
     import io.circe.syntax._
     val rq = CirceUtils.print(rr.rq.asJson)
     val rs = CirceUtils.print(rr.rs.asJson)
-    s"""\n\n{\n\t "Request":$rq, \n\t "Response":$rs\n } """
+    s"""\n\n{\n\t "request":$rq, \n\t "response":$rs\n } """
   }
 
   /** Quick hack to log in a way we can paste into regression testing files */

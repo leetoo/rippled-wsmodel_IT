@@ -15,7 +15,9 @@ import com.odenzo.ripple.testkit.helpers.ServerOps.{advanceLedger, doCmdCall, do
 
 object TxnFactories extends StrictLogging {
 
-  case class RippleTxnCommand[T<:RippleTransaction](tx:T, keys:AccountKeys)
+  case class RippleTxnCommand[T<:RippleTransaction](tx:T, signingKeys:AccountKeys) {
+
+  }
   /**
     *
     * @param issuer
@@ -24,14 +26,13 @@ object TxnFactories extends StrictLogging {
     *
     * @return List of RippleTransaction to sign and submit using the associated AccountKeys
     */
-  def genTrustLine(issuer: AccountAddr, account: AccountKeys, amount: FiatAmount): RippleTxnCommand[TrustSetTx] = {
+  def genTrustLine(issuer: AccountAddr, account: FullKeyPair, amount: FiatAmount): RippleTxnCommand[TrustSetTx] = {
     val commonTx = CommonTx(
       fee = Some(Drops.fromXrp("100")),
-      signingPubKey = Option(account.signingPubKey),
       memos = Memos.fromText("Test Transaction")
     )
     // Need to add the account setting the trust line with issuer
-    RippleTxnCommand(TrustSetTx(account.address, amount, base = commonTx), account)
+    RippleTxnCommand(TrustSetTx(account.address, amount, base = commonTx), account.signingKey)
   }
 
 
@@ -48,19 +49,19 @@ object TxnFactories extends StrictLogging {
     *
     * @return
     */
-  def genXrpPayment(from: AccountKeys, to: AccountAddr, amount: Drops, sequence: TxnSequence): PaymentTx = {
+  def genXrpPayment(from: FullKeyPair, to: AccountAddr, amount: Drops, sequence: TxnSequence): PaymentTx = {
 
     val common = CommonTx(
       sequence = Some(sequence),
       fee = Some(Drops.fromXrp("50")),
       signers = None,
-      signingPubKey = Some(SigningPublicKey(from.public_key_hex)),
+      signingPubKey = Some(from.singingPubKey), // Really should insert this at signing
       flags = BitMaskFlag(2147483648L),
       memos = None,
       hash = None
-    )
+      )
 
-    PaymentTx(account = from.account_id,
+    PaymentTx(account = from.address,
               amount = amount,
               destination = to,
               invoiceID = None,
@@ -78,7 +79,7 @@ object TxnFactories extends StrictLogging {
     * @param numWallets Number of wallet proposes to do.
     * @param keytype    ed2519 or secp256k1 as of June 2019
     */
-  def makeWallets(numWallets: Int, keytype: String): Either[AppError, List[(AccountKeys, JsonReqRes)]] = {
+  def makeWallets(numWallets: Int, keytype: String): Either[AppError, List[(FullKeyPair, JsonReqRes)]] = {
     (1 to numWallets).toList.traverse(_ ⇒ ServerOps.makeWallet(keytype))
   }
 
@@ -97,7 +98,7 @@ object TxnFactories extends StrictLogging {
       keys      = walletRs.keys
       seq       <- getAccountSequence(genesis.address) // Not strictly necessary
       rq        = genXrpPayment(genesis, keys.address, amount, seq)
-      submitted ← serverSignAndSubmit(rq.asJsonObject, genesis)
+      submitted ← serverSignAndSubmit(rq.asJsonObject, genesis.master)
       _         <- advanceLedger()
     } yield submitted
     result.left.foreach(v => logger.error(s"ERROR Creating Account" + v.show))
