@@ -40,9 +40,7 @@ class WebSocketJsonQueueFactory(node: RippleWsNode, logMessages: Boolean = true,
     Source.queue[Json](bufferSize = 20, overflowStrategy = OverflowStrategy.backpressure)
   private val sinkQueue = Sink.queue[ErrorOr[Json]]()
 
-  //  type flowSig = RunnableGraph[
-  //    ((SourceQueueWithComplete[Json], Future[WebSocketUpgradeResponse]), SinkQueueWithCancel[ErrorOr[Json]])
-  //  ]
+ 
 
   def connectAsync(): ErrorOrFT[WebSocketJsonConnection] = {
     val ((srcQ, upgrade), sinkQ) = buildFlow().run()

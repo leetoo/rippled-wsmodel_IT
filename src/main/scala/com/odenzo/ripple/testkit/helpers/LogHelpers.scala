@@ -36,7 +36,7 @@ trait LogHelpers extends StrictLogging {
   }
 
 
-  /** Worth a expirement with Cats Resource handling! */
+  /** TODO: Worth a expirement with Cats Resource handling */
   def overwriteFileWith(filePath: String, data: String): Path = {
     import java.nio.charset.StandardCharsets
     import java.nio.file.{Files, Paths}

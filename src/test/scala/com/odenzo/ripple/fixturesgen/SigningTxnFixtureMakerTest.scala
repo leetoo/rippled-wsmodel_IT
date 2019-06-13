@@ -30,7 +30,7 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
     val accounts: List[FullKeyPair] = getOrLog(StandardScenarios.allScenarioAccounts)
     val listOfAccounts: List[JsonObject] = accounts.map{ fkp ⇒
         val masterJson = fkp.master.asJsonObject
-        val master = JsonObject.singleton("aster", masterJson.asJson)
+        val master = JsonObject.singleton("master", masterJson.asJson)
         val regularJson = fkp.regular.map(_.asJson)
         regularJson.foreach(rj ⇒ master.add("regular", rj))
         master
@@ -38,7 +38,7 @@ class SigningTxnFixtureMakerTest extends FunSuite with IntegrationTestFixture {
 
     val txt = listOfAccounts.asJson.spaces4
 
-    LogHelpers.overwriteFileWith("logs/ScenarioWallets.json",txt)
+    LogHelpers.overwriteFileWith("logs/scenarioKeys.json",txt)
   }
   
   /** We do this for multiple wallets types **/

@@ -44,7 +44,7 @@ trait FlowSegments extends StrictLogging {
   }
 
   /** Quick hack to control throttling - this is not production grade I think. */
-  protected def createThrottlingFlow(tps: Int = 3, burstFactor: Float = 2.0f): Flow[Message, Message, NotUsed] = {
+  protected def createThrottlingFlow(tps: Int = 10, burstFactor: Float = 2.0f): Flow[Message, Message, NotUsed] = {
     Flow[Message].throttle(
       elements = tps,
       per = FiniteDuration(1L, TimeUnit.SECONDS),
