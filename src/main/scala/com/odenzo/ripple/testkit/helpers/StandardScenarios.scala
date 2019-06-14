@@ -1,17 +1,13 @@
-package com.odenzo.ripple.fixturesgen
+package com.odenzo.ripple.testkit.helpers
 
-import cats._
 import cats.data._
-import cats.implicits._
 import cats.implicits._
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.syntax._
 
-import com.odenzo.ripple.models.atoms.{AccountAddr, AccountKeys, Currency, Drops, FiatAmount, Script}
+import com.odenzo.ripple.models.atoms.{AccountKeys, Currency, Drops, FiatAmount, Script}
 import com.odenzo.ripple.models.utils.caterrors.AppError
-import com.odenzo.ripple.models.utils.caterrors.CatsTransformers.ErrorOr
 import com.odenzo.ripple.models.wireprotocol.transactions.transactiontypes.{CommonTx, SetRegularKeyTx}
-import com.odenzo.ripple.testkit.helpers.{FullKeyPair, ServerOps, TxnFactories}
 
 object StandardScenarios extends StrictLogging {
 
@@ -42,10 +38,13 @@ object StandardScenarios extends StrictLogging {
     merged
   }
 
+  def allKeysByType: Either[AppError, List[List[FullKeyPair]]] = {
+    List(secpWallets, ed25519Wallets,secpsecpWallets, secpedWallets, ededWallets, edsecpWallets).sequence
+  }
+
   /** All the scenario accounts, in case needed for logging */
   val allScenarioAccounts: Either[AppError, List[FullKeyPair]] = {
-    List(secpedWallets, ed25519Wallets, secpsecpWallets, secpedWallets, ededWallets, edsecpWallets).sequence
-      .map(_.flatten)
+    allKeysByType.map(_.flatten)
   }
 
   val issuer: Either[AppError, FullKeyPair] = ed25519Wallets.map(_.head)
@@ -69,7 +68,7 @@ object StandardScenarios extends StrictLogging {
       _ = keys.foreach { key ⇒
         ServerOps
           .getAccountSequence(funder.address)
-          .map(TxnFactories.genXrpPayment(funder, key.address, Drops.fromXrp(10000), _))
+          .map(TxnFactories.genXrpPayment(funder, key.address, Drops.fromXrp(100000), _))
           .flatMap(v ⇒ ServerOps.serverSignAndSubmit(v.asJsonObject, funder.signingKey))
       }
       _ ← ServerOps.advanceLedger()

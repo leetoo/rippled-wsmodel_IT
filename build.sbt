@@ -29,7 +29,7 @@ lazy val integrationTests = (project in file("."))
 
 
 lazy val commonSettings = Seq(
-  libraryDependencies ++= libs ++ lib_circe ++ lib_cats ++ lib_akka,
+  libraryDependencies ++= libs ++ lib_circe ++ lib_cats ++ lib_akka ++ lib_monocle,
   resolvers ++= Seq(
     Resolver.bintrayIvyRepo("odenzo","rippled-wsmodels"),
     Resolver.defaultLocal,                      // Usual I pulishLocal to Ivy not maven
@@ -107,4 +107,14 @@ val lib_cats = {
     "org.typelevel" %% "cats-core"   % catsVersion, // Cats is pulled in via Circe for now
     "org.typelevel" %% "cats-effect" % "1.2.0" withSources () withJavadoc ()
   )
+}
+
+val lib_monocle = {
+  val monocleVersion = "1.5.0" // 1.5.0-cats based on cats 1.0.x
+
+   Seq(
+                               "com.github.julien-truffaut" %% "monocle-core" % monocleVersion,
+                               "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion,
+                               "com.github.julien-truffaut" %% "monocle-law" % monocleVersion % "test"
+                               )
 }
